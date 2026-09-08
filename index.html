@@ -109,6 +109,12 @@
   .row .acts button{font-size:13px;color:var(--muted);padding:8px 8px;border-radius:8px}
   .row .acts button:active{background:var(--bg)}
   .row .acts button.danger{color:var(--red)}
+  .row:focus-visible{outline:2px solid var(--hero-b);outline-offset:2px}
+  /* weekly habits: one pip per required session, filled as they are logged */
+  .row .sub .pips{display:inline-flex;gap:3px;vertical-align:-1px;margin-right:6px}
+  .row .sub .pips i{width:7px;height:7px;border-radius:50%;background:var(--line-2);display:block}
+  .row .sub .due{color:var(--gold-deep);font-weight:600}
+  .row .sub .met{color:#15803D;font-weight:600}
 
   .empty{padding:22px 16px;border:1px dashed var(--line-2);border-radius:var(--r);
     text-align:center;color:var(--muted);font-size:14px;line-height:1.5;background:transparent}
@@ -274,6 +280,21 @@ function dayDiff(aISO,bISO){ // whole days from a to b, DST-safe
 }
 const isValidISO=s=>parseLocal(s)!==null;
 
+/* Weeks run Monday to Sunday, matching the calendar grid. weekStart() is
+   called once per log entry per render, so the answers are memoised by date
+   string; the map only ever holds one key per distinct day. */
+const _weekStartCache=new Map();
+function weekStart(iso){
+  if(_weekStartCache.has(iso)) return _weekStartCache.get(iso);
+  const d=parseLocal(iso);
+  let r=null;
+  if(d){d.setDate(d.getDate()-((d.getDay()+6)%7));r=localISO(d);}
+  _weekStartCache.set(iso,r);
+  return r;
+}
+// Days remaining in the week counting today: Monday 7 ... Sunday 1.
+const daysLeftInWeek=iso=>{const d=parseLocal(iso);return d?7-((d.getDay()+6)%7):0;};
+
 /* =================================================================
    MISC HELPERS
 ================================================================== */
@@ -318,12 +339,14 @@ function seed(){
   return {
     v:2,
     cats:[{id:c1,name:'Fitness',color:'#22C55E'},{id:c2,name:'School',color:'#3B82F6'},{id:c3,name:'Personal',color:'#8B5CF6'}],
+    // perWeek/bonus only bite in mode 'weekly', but every habit carries them
+    // so the shape here matches what normalise() produces
     habits:[
-      {id:'h1',name:'Gym session',xp:50,mode:'multi',cat:c1},
-      {id:'h2',name:'8k steps',xp:20,mode:'daily',cat:c1},
-      {id:'h3',name:'Study 2 hours',xp:30,mode:'daily',cat:c2},
-      {id:'h4',name:'Read 20 minutes',xp:10,mode:'daily',cat:c3},
-      {id:'h5',name:'Sleep before midnight',xp:15,mode:'daily',cat:c3}
+      {id:'h1',name:'Gym session',xp:50,mode:'multi',perWeek:3,bonus:0,cat:c1},
+      {id:'h2',name:'8k steps',xp:20,mode:'daily',perWeek:3,bonus:0,cat:c1},
+      {id:'h3',name:'Study 2 hours',xp:30,mode:'daily',perWeek:3,bonus:0,cat:c2},
+      {id:'h4',name:'Read 20 minutes',xp:10,mode:'daily',perWeek:3,bonus:0,cat:c3},
+      {id:'h5',name:'Sleep before midnight',xp:15,mode:'daily',perWeek:3,bonus:0,cat:c3}
     ],
     goals:[
       {id:'g1',name:'Bench press bodyweight',xp:300,cat:c1,done:false,doneDate:null},
@@ -355,7 +378,12 @@ function normalise(d){
 
   out.habits=Array.isArray(d.habits)?d.habits.filter(h=>h&&typeof h==='object').map(h=>({
     id:String(h.id||uid()),name:String(h.name||'Untitled').slice(0,60),
-    xp:clampInt(h.xp,1,100000)||10,mode:h.mode==='multi'?'multi':'daily',cat:fixCat(h.cat)})):[];
+    xp:clampInt(h.xp,1,100000)||10,
+    mode:h.mode==='multi'?'multi':h.mode==='weekly'?'weekly':'daily',
+    // only meaningful for mode 'weekly', but always present so the shape is stable
+    perWeek:clampInt(h.perWeek,1,14)||3,
+    bonus:clampInt(h.bonus,0,100000)||0,
+    cat:fixCat(h.cat)})):[];
   out.goals=Array.isArray(d.goals)?d.goals.filter(g=>g&&typeof g==='object').map(g=>({
     id:String(g.id||uid()),name:String(g.name||'Untitled').slice(0,60),
     xp:clampInt(g.xp,1,100000)||100,cat:fixCat(g.cat),done:!!g.done,
@@ -369,17 +397,33 @@ function normalise(d){
     // v1 entries used habitId/goalId; v2 uses type/refId
     const type=e.type||(e.goalId?'goal':'habit');
     const refId=e.refId||e.habitId||e.goalId||null;
-    return {id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':'habit',refId:refId?String(refId):null,
+    return {id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':type==='bonus'?'bonus':'habit',refId:refId?String(refId):null,
       name:String(e.name||'Entry').slice(0,60),xp:clampInt(e.xp,-100000,100000)||0,date:e.date,
       at:Number.isFinite(e.at)?e.at:0};
   }):[];
+
+  // At most one weekly bonus per habit per week. Past bonuses are never
+  // recomputed (see reconcileWeek), but a hand-edited or double-merged backup
+  // could carry duplicates, and those are repaired rather than trusted.
+  const seenBonus=new Set();
+  out.log=out.log.filter(e=>{
+    if(e.type!=='bonus') return true;
+    const k=e.refId+'|'+weekStart(e.date);
+    if(seenBonus.has(k)) return false;
+    seenBonus.add(k); return true;
+  });
 
   out.target=clampInt(d.target,1,100000000)||s.target;
   out.deadline=isValidISO(d.deadline)?d.deadline:s.deadline;
   out.start=isValidISO(d.start)?d.start:todayISO();
   // goal.done / task.done must agree with the log
-  const goalsLogged=new Set(out.log.filter(e=>e.type==='goal').map(e=>e.refId));
-  out.goals.forEach(g=>{g.done=goalsLogged.has(g.id);if(!g.done)g.doneDate=null;});
+  const goalEntry=new Map(out.log.filter(e=>e.type==='goal').map(e=>[e.refId,e]));
+  out.goals.forEach(g=>{
+    const e=goalEntry.get(g.id);
+    g.done=!!e;
+    // a done goal always has a date to show: fall back to its entry's
+    g.doneDate=g.done?(isValidISO(g.doneDate)?g.doneDate:e.date):null;
+  });
   const tasksLogged=new Set(out.log.filter(e=>e.type==='task').map(e=>e.refId));
   out.tasks.forEach(t=>{t.done=tasksLogged.has(t.id);});
   const r=d.reminders&&typeof d.reminders==='object'?d.reminders:{};
@@ -434,6 +478,26 @@ function totalXP(){return state.log.reduce((s,e)=>s+e.xp,0);}
 function xpOn(iso){return state.log.filter(e=>e.date===iso).reduce((s,e)=>s+e.xp,0);}
 function entriesOn(iso){return state.log.filter(e=>e.date===iso).sort((a,b)=>a.at-b.at);}
 function loggedOn(habitId,iso){return state.log.filter(e=>e.type==='habit'&&e.refId===habitId&&e.date===iso);}
+
+/* ---- weekly habits ----
+   A weekly habit asks for N sessions between Monday and Sunday. Each session
+   pays its own XP; finishing the Nth pays a one-off bonus for that week. */
+function weekLog(habitId,iso){
+  const w=weekStart(iso);
+  return state.log.filter(e=>e.type==='habit'&&e.refId===habitId&&weekStart(e.date)===w);
+}
+const weekCount=(habitId,iso)=>weekLog(habitId,iso).length;
+function weekBonusEntry(habitId,iso){
+  const w=weekStart(iso);
+  return state.log.find(e=>e.type==='bonus'&&e.refId===habitId&&weekStart(e.date)===w)||null;
+}
+const weeklyLeft=(h,iso)=>Math.max(0,h.perWeek-weekCount(h.id,iso));
+// True when there are no longer enough days left in the week to miss today.
+function weeklyDue(h,iso){
+  if(h.mode!=='weekly') return false;
+  const left=weeklyLeft(h,iso);
+  return left>0&&left>=daysLeftInWeek(iso);
+}
 function streak(){
   const days=new Set(state.log.map(e=>e.date));
   let n=0,d=todayISO();
@@ -443,11 +507,16 @@ function streak(){
 }
 const catOf=id=>state.cats.find(c=>c.id===id)||state.cats[0];
 function tasksOn(iso){return state.tasks.filter(t=>t.date===iso);}
+/* `count` is what is still owed *today*: unticked daily habits, today's goals,
+   and any weekly habit that can no longer be put off. `total` adds goals
+   carried over from earlier days, which is what the icon badge counts. */
 function pendingToday(){
   const t=todayISO();
-  const habits=state.habits.filter(h=>h.mode==='daily'&&!loggedOn(h.id,t).length);
+  const habits=state.habits.filter(h=>h.mode==='daily'?!loggedOn(h.id,t).length:weeklyDue(h,t));
   const tasks=state.tasks.filter(x=>x.date===t&&!x.done);
-  return {habits,tasks,count:habits.length+tasks.length};
+  const overdue=overdueTasks();
+  const count=habits.length+tasks.length;
+  return {habits,tasks,overdue,count,total:count+overdue.length};
 }
 function overdueTasks(){const t=todayISO();return state.tasks.filter(x=>!x.done&&dayDiff(x.date,t)>0).sort((a,b)=>a.date<b.date?-1:1);}
 
@@ -458,7 +527,7 @@ function updateBadge(){
   if(typeof navigator==='undefined'||!('setAppBadge' in navigator)) return;
   try{
     if(!state.reminders.badge){navigator.clearAppBadge().catch(()=>{});return;}
-    const n=pendingToday().count;
+    const n=pendingToday().total;
     (n>0?navigator.setAppBadge(n):navigator.clearAppBadge()).catch(()=>{});
   }catch(e){}
 }
@@ -483,6 +552,31 @@ function afterXPChange(){
 /* =================================================================
    ACTIONS
 ================================================================== */
+/* Award or take back the completion bonus for the single week that `iso` falls
+   in. Only that week is ever recomputed: raising "3x a week" to "4x" leaves
+   every past week's bonus exactly as it was earned, in line with the rule that
+   editing a habit does not rewrite history. The XP is copied into the entry at
+   the moment it is awarded, so later edits do not change what it paid.
+   Returns 'awarded', 'revoked', or null. */
+function reconcileWeek(habitId,iso){
+  const h=state.habits.find(x=>x.id===habitId); if(!h) return null;
+  const existing=weekBonusEntry(habitId,iso);
+  const earned=h.mode==='weekly'&&h.bonus>0&&weekCount(habitId,iso)>=h.perWeek;
+  if(earned&&!existing){
+    // dated to the session that completed the week, so it lands on that day
+    const last=weekLog(habitId,iso).slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.at-b.at).pop();
+    state.log.push({id:uid(),type:'bonus',refId:habitId,
+      name:h.name+' — '+h.perWeek+'× in a week',xp:h.bonus,
+      date:last?last.date:iso,at:Date.now()});
+    return 'awarded';
+  }
+  if(!earned&&existing){
+    state.log=state.log.filter(e=>e.id!==existing.id);
+    return 'revoked';
+  }
+  return null;
+}
+
 function logHabit(id,iso){
   const h=state.habits.find(x=>x.id===id); if(!h) return;
   iso=iso||todayISO();
@@ -494,8 +588,11 @@ function logHabit(id,iso){
     return;
   }
   state.log.push({id:uid(),type:'habit',refId:id,name:h.name,xp:h.xp,date:iso,at:Date.now()});
+  const bonus=h.mode==='weekly'?reconcileWeek(id,iso):null;
   save();afterXPChange();render();
-  if(charAnim!=='pop') toast('+'+h.xp+' XP');
+  if(charAnim==='pop') return;                       // the level-up toast already fired
+  if(bonus==='awarded') toast(h.perWeek+'× done — bonus +'+fmt(h.bonus)+' XP',true);
+  else toast('+'+h.xp+' XP');
 }
 function toggleGoal(id){
   const g=state.goals.find(x=>x.id===id); if(!g) return;
@@ -516,11 +613,16 @@ function removeEntry(entryId){
   state.log=state.log.filter(x=>x.id!==entryId);
   if(e.type==='goal'){const g=state.goals.find(x=>x.id===e.refId);if(g){g.done=false;g.doneDate=null;}}
   if(e.type==='task'){const t=state.tasks.find(x=>x.id===e.refId);if(t)t.done=false;}
+  // dropping a session can take the week back under its target
+  if(e.type==='habit') reconcileWeek(e.refId,e.date);
   save();afterXPChange();render();toast('Removed '+e.name);
 }
 function undoLast(){
-  if(!state.log.length) return toast('Nothing to undo');
-  const last=[...state.log].sort((a,b)=>b.at-a.at)[0];
+  // bonuses are derived from the sessions, so undo steps over them: removing
+  // the session that earned one takes the bonus with it.
+  const undoable=state.log.filter(e=>e.type!=='bonus');
+  if(!undoable.length) return toast('Nothing to undo');
+  const last=undoable.sort((a,b)=>b.at-a.at)[0];
   removeEntry(last.id);
 }
 
@@ -605,11 +707,14 @@ function saveCat(){
 function deleteCat(id){
   if(state.cats.length<=1) return toast('Keep at least one section');
   const c=catOf(id);
-  const n=state.habits.filter(h=>h.cat===id).length+state.goals.filter(g=>g.cat===id).length;
+  const n=state.habits.filter(h=>h.cat===id).length+state.goals.filter(g=>g.cat===id).length
+    +state.tasks.filter(t=>t.cat===id).length;
   const fallback=state.cats.find(x=>x.id!==id);
   if(!confirm('Delete "'+c.name+'"?'+(n?' Its '+n+' item'+(n>1?'s':'')+' will move to "'+fallback.name+'".':''))) return;
   state.habits.forEach(h=>{if(h.cat===id)h.cat=fallback.id;});
   state.goals.forEach(g=>{if(g.cat===id)g.cat=fallback.id;});
+  state.tasks.forEach(t=>{if(t.cat===id)t.cat=fallback.id;});
+  if(state.lastTaskCat===id) state.lastTaskCat=fallback.id;
   state.cats=state.cats.filter(x=>x.id!==id);
   if(editing&&editing.type==='cat'&&editing.id===id) editing=null;
   save();render();toast('Section deleted');
@@ -619,29 +724,39 @@ function deleteCat(id){
 function saveHabit(){
   const name=(document.getElementById('f-h-name').value||'').trim().slice(0,60);
   const xp=intIn(document.getElementById('f-h-xp').value,1,100000);
-  const mode=document.getElementById('f-h-mode').value==='multi'?'multi':'daily';
+  const raw=document.getElementById('f-h-mode').value;
+  const mode=raw==='multi'?'multi':raw==='weekly'?'weekly':'daily';
   const cat=document.getElementById('f-h-cat').value;
   if(!name) return toast('Give it a name');
   if(xp===null) return toast('XP must be a whole number between 1 and 100,000');
+  let perWeek=3,bonus=0;
+  if(mode==='weekly'){
+    perWeek=intIn(document.getElementById('f-h-per').value,1,14);
+    bonus=intIn(document.getElementById('f-h-bonus').value,0,100000);
+    if(perWeek===null) return toast('Times a week must be a whole number between 1 and 14');
+    if(bonus===null) return toast('Bonus XP must be a whole number between 0 and 100,000');
+  }
   if(!state.cats.some(c=>c.id===cat)) return toast('Pick a section');
   if(editing&&editing.type==='habit'){
     const h=state.habits.find(x=>x.id===editing.id);
     if(h){
       const oldMode=h.mode;
-      Object.assign(h,{name,xp,mode,cat});
-      // if switched repeatable -> daily, collapse any day with several entries to one
-      if(oldMode==='multi'&&mode==='daily'){
+      Object.assign(h,{name,xp,mode,cat,perWeek,bonus});
+      // if switched repeatable -> once a day, collapse any day with several entries to one
+      if(oldMode!=='daily'&&mode==='daily'){
         const seen=new Set();
         state.log=state.log.filter(e=>{
           if(e.type!=='habit'||e.refId!==h.id) return true;
           if(seen.has(e.date)) return false; seen.add(e.date); return true;
         });
       }
+      // the current week follows the new rule; earlier weeks keep what they earned
+      reconcileWeek(h.id,todayISO());
       // past entries keep their original name/xp on purpose: history stays true
     }
     editing=null;toast('Habit updated');
   }else{
-    state.habits.push({id:uid(),name,xp,mode,cat});toast('Habit added');
+    state.habits.push({id:uid(),name,xp,mode,cat,perWeek,bonus});toast('Habit added');
   }
   save();afterXPChange();render();
 }
@@ -730,7 +845,7 @@ function importData(input){
   input.value='';
 }
 function resetAll(){
-  if(!confirm('Delete every section, habit, objective and logged entry? This cannot be undone.')) return;
+  if(!confirm('Delete every logged entry and put the sections, habits and objectives back to the starting set? This cannot be undone.')) return;
   state=seed();state.log=[];save();lastLevel=1;editing=null;render();toast('Reset');
 }
 
@@ -812,18 +927,38 @@ function heroHTML(){
   </div>`;
 }
 
+// One pip per required session, filled left to right as the week fills up.
+function pipsHTML(count,perWeek,color){
+  if(perWeek>7) return '';
+  let s='<span class="pips" aria-hidden="true">';
+  for(let i=0;i<perWeek;i++) s+='<i style="'+(i<count?'background:'+color:'')+'"></i>';
+  return s+'</span>';
+}
 function habitRow(h,iso){
   const c=catOf(h.cat);
   const done=loggedOn(h.id,iso);
   const isDaily=h.mode==='daily';
+  const isWeekly=h.mode==='weekly';
   const isDone=isDaily&&done.length>0;
-  const sub=isDaily?(isDone?'Done. Tap to undo.':'Once a day')
-    :(done.length?done.length+'&times; today, '+fmt(done.length*h.xp)+' XP':'Tap each time you do it');
-  return `<div class="row tap ${isDone?'done':''}" data-act="log" data-id="${esc(h.id)}">
+  let sub,met=false;
+  if(isWeekly){
+    const n=weekCount(h.id,iso),left=Math.max(0,h.perWeek-n);
+    met=left===0;
+    sub=pipsHTML(n,h.perWeek,c.color)+(met&&n>h.perWeek?n+' this week':n+' of '+h.perWeek+' this week');
+    if(met) sub+=' &middot; <span class="met">done'+(h.bonus?', +'+fmt(h.bonus)+' bonus':'')+'</span>';
+    else if(weeklyDue(h,iso)) sub+=' &middot; <span class="due">'+(left>1?left+' left, go today':'go today')+'</span>';
+    else sub+=' &middot; '+left+' to go';
+  }else if(isDaily){
+    sub=isDone?'Done. Tap to undo.':'Once a day';
+  }else{
+    sub=done.length?done.length+'&times; today, '+fmt(done.length*h.xp)+' XP':'Tap each time you do it';
+  }
+  const label=isDaily?(isDone?'Undo ':'Log ')+h.name:'Log '+h.name;
+  return `<div class="row tap ${isDone?'done':''}" data-act="log" data-id="${esc(h.id)}" role="button" tabindex="0" aria-label="${esc(label)}">
     <div class="edge" style="background:${c.color}"></div>
     ${isDaily
       ?`<div class="tick" style="${isDone?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>`
-      :`<div class="plus" style="background:${c.color}">+</div>`}
+      :`<div class="plus" style="background:${c.color}${met?';opacity:.55':''}">${met?'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>':'+'}</div>`}
     <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${sub}</div></div>
     <div class="xp num" style="color:${isDone?'':c.color}">${h.xp}</div>
   </div>`;
@@ -831,7 +966,7 @@ function habitRow(h,iso){
 function goalRow(g,opts){
   const c=catOf(g.cat);opts=opts||{};
   const id=esc(g.id);
-  return `<div class="row ${g.done?'done':''} ${opts.manage?'':'tap'}" ${opts.manage?'':'data-act="goal" data-id="'+id+'"'}>
+  return `<div class="row ${g.done?'done':''} ${opts.manage?'':'tap'}" ${opts.manage?'':'data-act="goal" data-id="'+id+'" role="button" tabindex="0" aria-label="'+esc((g.done?'Reopen ':'Complete ')+g.name)+'"'}>
     <div class="edge" style="background:${c.color}"></div>
     <div class="tick" ${opts.manage?'data-act="goal" data-id="'+id+'"':''} style="border-radius:50%;${g.done?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
     <div class="body"><div class="name">${esc(g.name)}</div>
@@ -845,7 +980,7 @@ function taskRow(t,opts){
   opts=opts||{};
   const c=catOf(t.cat),id=esc(t.id);
   const future=dayDiff(todayISO(),t.date)>0;
-  return `<div class="row task ${t.done?'done':''} ${future?'':'tap'}" ${future?'':'data-act="task" data-id="'+id+'"'}>
+  return `<div class="row task ${t.done?'done':''} ${future?'':'tap'}" ${future?'':'data-act="task" data-id="'+id+'" role="button" tabindex="0" aria-label="'+esc((t.done?'Reopen ':'Complete ')+t.name)+'"'}>
     <div class="edge" style="background:${c.color}"></div>
     <div class="tick" style="${t.done?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
     <div class="body"><div class="name">${esc(t.name)}</div>
@@ -859,7 +994,7 @@ function quickAddHTML(iso){
   const t=todayISO();
   const label=iso===t?'Add goal':'Add for '+fmtShort(iso);
   return `<div class="quick" id="quick-add">
-    <div class="line"><input class="name" id="f-t-name" placeholder="Finish the marketing homework" maxlength="80" autocomplete="off"><input class="xp num" id="f-t-xp" type="number" inputmode="numeric" min="1" step="1" value="25" aria-label="XP"></div>
+    <div class="line"><input class="name" id="f-t-name" placeholder="Finish the marketing homework" maxlength="80" autocomplete="off" aria-label="Goal name"><input class="xp num" id="f-t-xp" type="number" inputmode="numeric" min="1" step="1" value="25" aria-label="XP"></div>
     <div class="line"><select id="f-t-cat" aria-label="Section">${catOptions(state.lastTaskCat)}</select><button class="btn primary" data-act="task-add" data-id="${iso}">${label}</button></div>
   </div>`;
 }
@@ -867,10 +1002,12 @@ function reminderBannerHTML(){
   const times=state.reminders.times; if(!times.length) return '';
   const now=new Date(),hm=pad2(now.getHours())+':'+pad2(now.getMinutes());
   const passed=times.filter(x=>x<=hm).sort().pop(); if(!passed) return '';
-  const p=pendingToday(); if(!p.count) return '';
+  const p=pendingToday(); if(!p.total) return '';
   const names=[...p.tasks.map(x=>x.name),...p.habits.map(x=>x.name)];
   const shown=names.slice(0,3).map(esc).join(', ')+(names.length>3?' and '+(names.length-3)+' more':'');
-  return `<div class="remind"><span>&#9202;</span><div><b>${passed} reminder.</b> ${p.count} still to do today: ${shown}.</div></div>`;
+  const today=p.count?p.count+' still to do today: '+shown+'.':'Nothing left for today.';
+  const earlier=p.overdue.length?' Plus '+p.overdue.length+' unfinished from earlier.':'';
+  return `<div class="remind"><span>&#9202;</span><div><b>${passed} reminder.</b> ${today}${earlier}</div></div>`;
 }
 
 function viewHome(){
@@ -901,7 +1038,7 @@ function viewHome(){
   }).join('');
   return heroHTML()+
     `<div class="pendline"><span>Today</span>
-      <span class="num">${fmt(todayTotal)} XP so far${pend.count?' &middot; '+pend.count+' left':' &middot; all done'}</span></div>`+
+      <span class="num">${fmt(todayTotal)} XP so far${pend.total?' &middot; '+pend.total+' left':' &middot; all done'}</span></div>`+
     reminderBannerHTML()+
     goalsBlock+
     (sections||`<div class="empty" style="margin-top:12px">Nothing to track yet. Add sections, habits and objectives under Manage.</div>`)+
@@ -942,11 +1079,12 @@ function viewCalendar(){
     ${selFuture?'':selEntries.length?selEntries.map(e=>{
       const src=e.type==='goal'?state.goals.find(g=>g.id===e.refId):e.type==='task'?state.tasks.find(x=>x.id===e.refId):state.habits.find(h=>h.id===e.refId);
       const col=src?catOf(src.cat).color:'#94A3B8';
-      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':'';
+      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?'weekly bonus':'';
+      // a bonus follows its sessions: remove one of those and it goes by itself
       return `<div class="entry"><span class="edge" style="background:${col}"></span>
         <span class="n">${esc(e.name)}${tag?' <span style="color:var(--muted);font-size:12px">'+tag+'</span>':''}</span>
         <span class="x num">+${fmt(e.xp)}</span>
-        <button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button></div>`;
+        ${e.type==='bonus'?'':`<button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button>`}</div>`;
     }).join(''):`<div class="empty">Nothing logged on this day.</div>`}
     ${selFuture?'':tasksBlock}
     ${selFuture||!state.habits.length?'':`
@@ -998,15 +1136,20 @@ function viewManage(){
     body=(state.habits.length?state.cats.map(c=>{
       const hs=state.habits.filter(h=>h.cat===c.id); if(!hs.length) return '';
       return `<h2 style="margin-top:6px"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</h2>`+hs.map(h=>`<div class="row"><div class="edge" style="background:${c.color}"></div>
-        <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':'Repeatable'} &middot; ${h.xp} XP</div></div>
+        <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':h.mode==='weekly'?h.perWeek+'&times; a week'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):'Repeatable'} &middot; ${h.xp} XP</div></div>
         <div class="acts"><button data-act="edit-habit" data-id="${esc(h.id)}">Edit</button><button class="danger" data-act="del-habit" data-id="${esc(h.id)}">Delete</button></div></div>`).join('');
     }).join(''):`<div class="empty">No habits yet.</div>`)+
     `<div class="form" style="margin-top:14px"><h3>${ed?'Edit habit':'New habit'}</h3>
       <div class="field"><label for="f-h-name">Name</label><input id="f-h-name" placeholder="Gym session" value="${ed?esc(ed.name):''}" maxlength="60"></div>
       <div class="two">
         <div class="field"><label for="f-h-xp">XP</label><input id="f-h-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:25}"></div>
-        <div class="field"><label for="f-h-mode">How often</label><select id="f-h-mode"><option value="daily" ${ed&&ed.mode==='daily'?'selected':''}>Once a day</option><option value="multi" ${ed&&ed.mode==='multi'?'selected':''}>Repeatable</option></select></div>
+        <div class="field"><label for="f-h-mode">How often</label><select id="f-h-mode"><option value="daily" ${ed&&ed.mode==='daily'?'selected':''}>Once a day</option><option value="multi" ${ed&&ed.mode==='multi'?'selected':''}>Repeatable</option><option value="weekly" ${ed&&ed.mode==='weekly'?'selected':''}>Times a week</option></select></div>
       </div>
+      <div id="f-h-weekly" class="two ${ed&&ed.mode==='weekly'?'':'hidden'}">
+        <div class="field"><label for="f-h-per">Times a week</label><input id="f-h-per" type="number" inputmode="numeric" min="1" max="14" step="1" value="${ed&&ed.mode==='weekly'?ed.perWeek:3}"></div>
+        <div class="field"><label for="f-h-bonus">Bonus when hit</label><input id="f-h-bonus" type="number" inputmode="numeric" min="0" step="1" value="${ed&&ed.mode==='weekly'?ed.bonus:50}"></div>
+      </div>
+      <div id="f-h-weekly-note" class="note ${ed&&ed.mode==='weekly'?'':'hidden'}" style="margin-bottom:10px">Each session pays its XP. Finishing the week's count pays the bonus once, on top. Weeks run Monday to Sunday.</div>
       <div class="field"><label for="f-h-cat">Section</label><select id="f-h-cat">${catOptions(ed?ed.cat:state.cats[0].id)}</select></div>
       <div class="inline"><button class="btn primary" data-act="save-habit">${ed?'Save changes':'Add habit'}</button>${ed?'<button class="btn ghost" data-act="cancel">Cancel</button>':''}</div>
     </div>`;
@@ -1117,6 +1260,20 @@ document.addEventListener('change',e=>{
   if(!e.target) return;
   if(e.target.id==='f-import') importData(e.target);
   if(e.target.id==='f-badge') setBadgePref(e.target.checked);
+  // shown/hidden in place rather than re-rendering, so a half-typed name survives
+  if(e.target.id==='f-h-mode'){
+    const on=e.target.value==='weekly';
+    ['f-h-weekly','f-h-weekly-note'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.classList.toggle('hidden',!on);
+    });
+  }
+});
+// rows are divs with role="button": make the keyboard behave like the tap
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ') return;
+  const el=e.target instanceof Element?e.target.closest('.row[role="button"]'):null;
+  if(!el) return;
+  e.preventDefault(); el.click();
 });
 // Enter in a form field triggers that form's primary button
 document.addEventListener('keydown',e=>{

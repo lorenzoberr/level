@@ -341,6 +341,148 @@ with sync_playwright() as p:
     check("Oct 1 2026 is a Thursday -> 3 blanks", all("blank" in c.get_attribute("class") for c in page.locator(".cal .day").all()[:3]) and page.locator(".cal .day").all()[3].inner_text().startswith("1"))
     ctx.close()
 
+    # ---------- 3b. weekly habits: Sat 12 Sep 2026, mid-week pressure ----------
+    # Sat 12 Sep 2026 sits in the week starting Mon 7 Sep. Two days are left,
+    # so a fresh "3x a week" habit is already unmissable.
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    werr = []
+    page.on("pageerror", lambda e: werr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 12, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector(".hero")
+
+    page.locator("button[data-act=tab][data-id=manage]").click()
+    page.locator("button[data-act=seg][data-id=habits]").click()
+    check("weekly fields hidden until 'Times a week' is picked",
+          "hidden" in page.locator("#f-h-weekly").get_attribute("class"))
+    page.fill("#f-h-name", "Weekly gym")
+    page.fill("#f-h-xp", "50")
+    page.select_option("#f-h-mode", "weekly")
+    check("picking 'Times a week' reveals the count and bonus fields",
+          "hidden" not in page.locator("#f-h-weekly").get_attribute("class"))
+    check("switching mode keeps what was already typed", page.input_value("#f-h-name") == "Weekly gym")
+    page.fill("#f-h-per", "3")
+    page.fill("#f-h-bonus", "60")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    check("weekly habit listed with its count and bonus",
+          "3× a week, +60 bonus" in page.locator(".row", has_text="Weekly gym").inner_text(),
+          page.locator(".row", has_text="Weekly gym").inner_text())
+
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    gym = lambda: page.locator(".row[data-act=log]", has_text="Weekly gym")
+    check("starts at 0 of 3", "0 of 3 this week" in gym().inner_text(), gym().inner_text())
+    check("3 pips, none filled", gym().locator(".pips i").count() == 3
+          and not any(i.get_attribute("style") for i in gym().locator(".pips i").all()))
+    check("Saturday with 3 still to go says go today", "go today" in gym().inner_text(), gym().inner_text())
+
+    gym().click(); page.wait_for_timeout(60)
+    check("one session logged: 2 to go", "1 of 3 this week" in gym().inner_text() and "2 left, go today" in gym().inner_text(), gym().inner_text())
+    check("first pip filled", sum(1 for i in gym().locator(".pips i").all() if i.get_attribute("style")) == 1)
+    gym().click(); page.wait_for_timeout(60)
+    check("two sessions logged: 1 to go", "2 of 3 this week" in gym().inner_text(), gym().inner_text())
+    check("XP is the sessions only, no bonus yet", page.inner_text(".total").strip() == "100", page.inner_text(".total"))
+    gym().click(); page.wait_for_timeout(60)
+    check("third session completes the week", "3 of 3 this week" in gym().inner_text() and "done, +60 bonus" in gym().inner_text(), gym().inner_text())
+    check("bonus paid on top of the three sessions", page.inner_text(".total").strip() == "210", page.inner_text(".total"))
+    check("bonus toast shown", "bonus +60 XP" in page.inner_text("#toast"), page.inner_text("#toast"))
+    page.screenshot(path="shots/weekly_done.png", full_page=True)
+
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    bonuses = [e for e in d["log"] if e["type"] == "bonus"]
+    check("exactly one bonus entry, dated to the session that finished the week",
+          len(bonuses) == 1 and bonuses[0]["date"] == "2026-09-12" and bonuses[0]["xp"] == 60, bonuses)
+    check("total XP is still just the sum of the log", sum(e["xp"] for e in d["log"]) == 210)
+
+    # a fourth session in the same week pays its XP but not a second bonus
+    gym().click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("extra session pays no second bonus",
+          len([e for e in d["log"] if e["type"] == "bonus"]) == 1 and page.inner_text(".total").strip() == "260")
+    check("row counts the extra session", "4 this week" in gym().inner_text(), gym().inner_text())
+
+    # the calendar shows the bonus as its own entry, and will not let you remove it
+    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    bonus_entry = page.locator(".entry", has_text="in a week")
+    check("bonus appears in the day's entries, tagged", bonus_entry.count() == 1 and "weekly bonus" in bonus_entry.inner_text())
+    check("bonus has no Remove button of its own", bonus_entry.locator("button[data-act=rm-entry]").count() == 0)
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+
+    # undo steps over the bonus; dropping under the count takes the bonus back
+    page.locator("button[data-act=undo]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("undo removes a session, not the bonus",
+          len([e for e in d["log"] if e["type"] == "bonus"]) == 1 and page.inner_text(".total").strip() == "210")
+    page.locator("button[data-act=undo]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("falling under the count takes the bonus back",
+          not [e for e in d["log"] if e["type"] == "bonus"] and page.inner_text(".total").strip() == "100", page.inner_text(".total"))
+    check("row reverts to 2 of 3", "2 of 3 this week" in gym().inner_text(), gym().inner_text())
+    gym().click(); page.wait_for_timeout(60)
+    check("re-earning pays the bonus exactly once again", page.inner_text(".total").strip() == "210")
+
+    # ---------- the week rolls over on Monday ----------
+    page.clock.run_for(2 * 24 * 60 * 60 * 1000)   # Sat 12 -> Mon 14 Sep
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(120)
+    check("header moved to Monday 14 September", "Monday 14 September" in page.inner_text("#today"), page.inner_text("#today"))
+    check("weekly counter resets on Monday", "0 of 3 this week" in gym().inner_text(), gym().inner_text())
+    check("Monday with a full week ahead does not nag", "go today" not in gym().inner_text(), gym().inner_text())
+    check("last week's XP and bonus are untouched", page.inner_text(".total").strip() == "210")
+
+    # raising the count must not strip a bonus already earned in an earlier week
+    page.locator("button[data-act=tab][data-id=manage]").click()
+    page.locator("button[data-act=seg][data-id=habits]").click()
+    page.locator(".row", has_text="Weekly gym").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(60)
+    check("edit form prefilled with the weekly settings",
+          page.input_value("#f-h-per") == "3" and page.input_value("#f-h-bonus") == "60")
+    page.fill("#f-h-per", "4")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("raising 3x to 4x leaves last week's bonus alone",
+          len([e for e in d["log"] if e["type"] == "bonus"]) == 1 and sum(e["xp"] for e in d["log"]) == 210, d["log"])
+    check("weekly settings survive a save", d["habits"][-1]["perWeek"] == 4 and d["habits"][-1]["bonus"] == 60)
+
+    # switching a weekly habit to once-a-day collapses that day and drops the live bonus
+    page.locator(".row", has_text="Weekly gym").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(60)
+    page.select_option("#f-h-mode", "daily")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    sess = [e for e in d["log"] if e["type"] == "habit" and e["name"] == "Weekly gym"]
+    check("weekly -> once a day collapses the repeated day to one entry", len(sess) == 1, sess)
+    check("no JS errors anywhere in the weekly flow", not werr, werr)
+    ctx.close()
+
+    # ---------- 3c. fixes: section delete, badge count, reset wording ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    page.clock.install(time=datetime.datetime(2026, 9, 8, 9, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector(".hero")
+    # a daily goal in School, then delete the School section
+    page.locator("button[data-act=task-form]").click(); page.wait_for_timeout(50)
+    page.fill("#f-t-name", "Homework"); page.fill("#f-t-xp", "40")
+    page.select_option("#f-t-cat", label="School")
+    page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=tab][data-id=manage]").click(); page.wait_for_selector(".seg")
+    page.locator(".row", has_text="School").locator("button[data-act=del-cat]").click(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    cat_ids = {c["id"] for c in d["cats"]}
+    check("deleting a section moves its daily goals too, no orphans",
+          all(t["cat"] in cat_ids for t in d["tasks"]), [t["cat"] for t in d["tasks"]])
+    check("lastTaskCat is not left pointing at the deleted section", d["lastTaskCat"] in cat_ids)
+
+    # badge counts goals carried over from earlier days, not just today's
+    page.evaluate("""() => { window.__badge=[]; navigator.setAppBadge = n => { window.__badge.push(n); return Promise.resolve(); };
+                            navigator.clearAppBadge = () => { window.__badge.push(0); return Promise.resolve(); }; }""")
+    page.clock.run_for(24 * 60 * 60 * 1000)   # -> 9 Sep, yesterday's goal is now overdue
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(120)
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(80)
+    overdue = page.locator(".row.task", has_text="Homework").count()
+    calls = page.evaluate("window.__badge")
+    check("badge and 'left' count include unfinished goals from earlier days",
+          overdue == 1 and calls and calls[-1] == 5, (overdue, calls, page.inner_text(".pendline")))
+    ctx.close()
+
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()

@@ -1,7 +1,10 @@
 # Level — setup
 
-Seven app files, plus `CLAUDE.md` (project notes for Claude Code) and
-`test_app.py` (automated tests). Nothing to install, nothing to pay for.
+Seven app files, plus `CLAUDE.md` (project notes for Claude Code), `test_app.py`
+(automated tests) and `serve.ps1` (previews the app locally on Windows: right
+click > Run with PowerShell, then open `http://localhost:8765/`). Nothing to
+install, nothing to pay for. The three extra files are harmless to upload and
+the app ignores them; delete them from the repo if you would rather not.
 
 ## Put it online
 
@@ -61,8 +64,18 @@ do work:
 ## How it works
 
 - Sections group habits and objectives and give them a colour.
-- Habits are "once a day" (tap to log, tap again to undo) or "repeatable"
-  (each tap adds XP).
+- Habits are "once a day" (tap to log, tap again to undo), "repeatable"
+  (each tap adds XP), or "times a week".
+- **Times a week** is for things you do a few times a week rather than daily,
+  like the gym. Set the count (say 3) and a bonus. Each session pays its own XP
+  and fills one dot; the row counts down — "1 of 3 this week · 2 to go". Finish
+  the third and the bonus is paid on top, once, that week. Extra sessions past
+  the count still pay their XP, but the bonus is only ever paid once a week.
+  Weeks run Monday to Sunday. On the day when the sessions you still owe equal
+  the days left in the week, the row turns amber and says "go today"; that is
+  also when it starts counting towards the number on the app icon. Come Monday
+  the count starts again at zero and last week's XP stays where it is.
+  Raising the count later never takes back a bonus an earlier week earned.
 - Objectives are one-off. Tick when done; tick again to reopen.
 - Daily goals are one-off things for a specific day (homework, an errand),
   each with its own XP. Add them from Home with "+ Add goal", or plan ahead
