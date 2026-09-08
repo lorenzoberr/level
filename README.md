@@ -45,6 +45,11 @@ Stored in the browser's localStorage on that one device. Never leaves the phone.
 Settings > Export backup produces a JSON file (on iPhone it opens the share
 sheet, so save it to Files or iCloud). Settings > Restore backup reads it back.
 
+If it has been a fortnight since the last export, Home shows a strip saying how
+long it has been, with a button to export there and then. It goes away as soon
+as you export and comes back a fortnight later. Settings > Your data always
+shows the date of the last one.
+
 ## Reminders
 
 The app cannot send notifications on its own. iPhone web apps only receive
@@ -63,6 +68,8 @@ do work:
 
 ## How it works
 
+- The app follows the phone's light or dark setting on its own. To pin it one
+  way regardless, Settings > Appearance has Auto, Light and Dark.
 - Sections group habits and objectives and give them a colour.
 - Habits are "once a day" (tap to log, tap again to undo), "repeatable"
   (each tap adds XP), or "times a week".

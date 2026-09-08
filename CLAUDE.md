@@ -27,7 +27,8 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Architecture (index.html)
 
-- State: `{cats, habits, goals, tasks, log, target, deadline, start, reminders, lastTaskCat}`.
+- State: `{cats, habits, goals, tasks, log, target, deadline, start, reminders,
+  theme, lastBackup, lastTaskCat}`.
   - `habits`: `mode` is `daily` (toggle, once per day), `multi` (repeatable), or
     `weekly` (N sessions per Monday–Sunday week). Weekly habits also carry
     `perWeek` (1–14) and `bonus` (0 = no bonus); both fields are present on every
@@ -45,6 +46,14 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
   strings; `render()` replaces `#view`. All clicks go through one delegated
   listener keyed on `data-act` / `data-id`. Never use inline `onclick`.
 - All user strings go through `esc()` before entering HTML.
+- **Theme.** Every colour the app paints is a CSS custom property on `:root`;
+  `:root[data-theme="dark"]` restates the values and nothing else. Never write a
+  raw hex in a rule or an inline style — add a token. (The only deliberate
+  exceptions are `#fff` inside `.hero` and on tick marks, which sit on a
+  coloured fill in both themes, and the character SVG.) `state.theme` is
+  `auto` (follows the phone), `light` or `dark`. The inline script in `<head>`
+  settles `data-theme` before the first paint so a dark phone never flashes
+  white; it duplicates the logic in `effectiveTheme()` and the two must agree.
 - Character: `characterSVG(level)`, original design, tiers at levels 5/10/15/20.
 - Badge: `updateBadge()` calls `navigator.setAppBadge` with the pending count.
 
@@ -75,8 +84,11 @@ The URL must never change after install: data is tied to the origin.
 1. Loss signals beyond the one that exists: weekly consistency %, days missed,
    streak freeze. (A weekly habit already turns amber and says "go today" once
    the days left in the week equal the sessions still owed — see `weeklyDue()`.)
-2. "Last backup N days ago" nudge on Home.
-3. Daily cap for repeatable habits.
-4. Measurable objectives (current / target number).
-5. Real push notifications would need a small server (e.g. Cloudflare Worker
+2. Daily cap for repeatable habits.
+3. Measurable objectives (current / target number).
+4. Real push notifications would need a small server (e.g. Cloudflare Worker
    with VAPID + cron). Only if explicitly requested; it moves data off the phone.
+
+`backupOverdue()` drives the Home nudge: 14 days since `lastBackup`, counted
+from `start` when nothing has been exported yet, and only once there is
+something in the log. `exportData()` is the only thing that sets `lastBackup`.

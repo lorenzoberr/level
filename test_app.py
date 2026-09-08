@@ -483,6 +483,109 @@ with sync_playwright() as p:
           overdue == 1 and calls and calls[-1] == 5, (overdue, calls, page.inner_text(".pendline")))
     ctx.close()
 
+    # ---------- 3d. dark mode ----------
+    ctx = browser.new_context(color_scheme="dark", **IPHONE)
+    page = ctx.new_page()
+    derr = []
+    page.on("pageerror", lambda e: derr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 8, 22, 0, 0, tzinfo=ROME))
+    page.goto(URL); page.wait_for_selector(".hero")
+    check("a dark phone gets the dark theme", page.evaluate("document.documentElement.getAttribute('data-theme')") == "dark")
+    check("page background is the dark token",
+          page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(11, 18, 32)",
+          page.evaluate("getComputedStyle(document.body).backgroundColor"))
+    check("status bar colour follows the theme", page.get_attribute("#tc", "content") == "#0B1220")
+    check("color-scheme is set so native controls follow",
+          page.evaluate("getComputedStyle(document.documentElement).colorScheme") == "dark")
+
+    # every painted surface must come from a token: nothing may stay pure white
+    whites = []
+    for t in ("home", "calendar", "manage"):
+        page.locator("button[data-act=tab][data-id=%s]" % t).click(); page.wait_for_timeout(80)
+        whites += page.evaluate("""() => [...document.querySelectorAll('#view *, .tabs, .tabs *, .toast')]
+            .filter(e => !e.closest('.hero'))   // the hero bar is white on its blue gradient, by design
+            .filter(e => getComputedStyle(e).backgroundColor === 'rgb(255, 255, 255)')
+            .map(e => e.tagName + '.' + (e.className || '')).slice(0, 8)""")
+    page.locator("button[data-act=tab][data-id=manage]").click()
+    for s in ("cats", "habits", "goals", "target"):
+        page.locator("button[data-act=seg][data-id=%s]" % s).click(); page.wait_for_timeout(80)
+        whites += page.evaluate("""() => [...document.querySelectorAll('#view *')]
+            .filter(e => !e.closest('.hero'))   // the hero bar is white on its blue gradient, by design
+            .filter(e => getComputedStyle(e).backgroundColor === 'rgb(255, 255, 255)')
+            .map(e => e.tagName + '.' + (e.className || '')).slice(0, 8)""")
+    check("no surface is left hardcoded white in dark mode", not whites, whites)
+    page.screenshot(path="shots/dark_manage.png", full_page=True)
+
+    # forcing a theme overrides the phone, and survives a reload without flashing
+    page.locator("button[data-act=seg][data-id=target]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=theme][data-id=light]").click(); page.wait_for_timeout(60)
+    check("forcing light overrides a dark phone",
+          page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
+          and page.get_attribute("#tc", "content") == "#F3F5F9")
+    page.reload(); page.wait_for_selector(".hero")
+    check("the head script applies the forced theme before the first paint",
+          page.evaluate("document.documentElement.getAttribute('data-theme')") == "light")
+    page.locator("button[data-act=tab][data-id=manage]").click()
+    page.locator("button[data-act=seg][data-id=target]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=theme][data-id=auto]").click(); page.wait_for_timeout(60)
+    check("back on auto it follows the phone again",
+          page.evaluate("document.documentElement.getAttribute('data-theme')") == "dark")
+    check("no JS errors in dark mode", not derr, derr)
+    ctx.close()
+
+    # a light phone is unaffected
+    ctx = browser.new_context(color_scheme="light", **IPHONE)
+    page = ctx.new_page()
+    page.goto(URL); page.wait_for_selector(".hero")
+    check("a light phone still gets the light theme",
+          page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
+          and page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(243, 245, 249)")
+    ctx.close()
+
+    # ---------- 3e. backup nudge ----------
+    ctx = browser.new_context(accept_downloads=True, **IPHONE)
+    page = ctx.new_page()
+    page.clock.install(time=datetime.datetime(2026, 9, 8, 9, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector(".hero")
+    check("a fresh install does not nag about backups", page.locator(".remind.backup").count() == 0)
+    page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(60)
+    check("nor does it after one day of use", page.locator(".remind.backup").count() == 0)
+
+    # wind the clock back by moving `start`, which is what the nudge counts from
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.start = '2026-08-19'; s.lastBackup = null;
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    check("after 20 days with no backup, Home says so",
+          page.locator(".remind.backup").count() == 1
+          and "20 days of entries" in page.locator(".remind.backup").inner_text(),
+          page.locator(".remind.backup").inner_text() if page.locator(".remind.backup").count() else "no nudge")
+    page.screenshot(path="shots/backup_nudge.png", full_page=True)
+
+    with page.expect_download() as dl:
+        page.locator(".remind.backup button[data-act=export]").click()
+    check("the nudge's button exports a dated backup file",
+          dl.value.suggested_filename == "level-backup-2026-09-08.json", dl.value.suggested_filename)
+    page.wait_for_timeout(120)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("exporting records the backup date", d["lastBackup"] == "2026-09-08", d.get("lastBackup"))
+    check("the nudge goes away once backed up", page.locator(".remind.backup").count() == 0)
+    page.locator("button[data-act=tab][data-id=manage]").click()
+    page.locator("button[data-act=seg][data-id=target]").click(); page.wait_for_timeout(60)
+    check("settings shows when the last backup was", "Last backup 8 Sept 2026" in page.inner_text("#view"), page.inner_text("#view")[:200])
+
+    # it comes back when the backup goes stale
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.lastBackup = '2026-08-20';
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    check("a stale backup brings the nudge back",
+          page.locator(".remind.backup").count() == 1
+          and "Last backup 19 days ago" in page.locator(".remind.backup").inner_text(),
+          page.locator(".remind.backup").inner_text() if page.locator(".remind.backup").count() else "no nudge")
+    ctx.close()
+
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()

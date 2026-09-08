@@ -3,15 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#F3F5F9">
+<meta name="theme-color" content="#F3F5F9" id="tc">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Level">
 <title>Level</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
+<script>
+/* Settle the theme before the first paint, so a dark phone never flashes
+   white on open. applyTheme() takes over once the app has loaded; this only
+   reads the stored preference and must stay in sync with effectiveTheme(). */
+(function(){
+  var t='auto';
+  try{t=(JSON.parse(localStorage.getItem('level.v2')||'{}').theme)||'auto';}catch(e){}
+  var dark=t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+})();
+</script>
 <style>
+  /* Light is the base; every colour the app paints is a token here, so the
+     dark block below only has to restate values, never rules. */
   :root{
+    color-scheme:light;
     --bg:#F3F5F9;
     --card:#FFFFFF;
     --ink:#0F172A;
@@ -21,11 +35,78 @@
     --line-2:#CBD5E1;
     --hero-a:#1E40AF;
     --hero-b:#3B82F6;
+    --accent:#1E40AF;        /* blue as text on the page background */
     --gold:#FBBF24;
     --gold-deep:#B45309;
+    --green:#15803D;
     --red:#DC2626;
+    --surface-2:#F8FAFC;     /* pressed rows, completed rows */
+    --seg-bg:#E2E8F0;
+    --input-bg:#FFFFFF;
+    --btn-bg:#0F172A;
+    --btn-fg:#FFFFFF;
+    --tint-bg:#EFF6FF;       /* blue notes and chips */
+    --tint-bg-2:#DBEAFE;
+    --tint-ink:#1E40AF;
+    --warn-bg:#FFF7ED;       /* the reminder / backup strip */
+    --warn-ink:#9A3412;
+    --note-warn-bg:#FFFBEB;
+    --note-warn-ink:#92400E;
+    --danger-line:#FECACA;
+    --toast-bg:#0F172A;
+    --toast-fg:#FFFFFF;
+    --on-gold:#0F172A;       /* always dark: gold stays light in both themes */
+    --ring:#FFFFFF;          /* the gap inside the selected-day ring */
+    --tabs-bg:rgba(243,245,249,.92);
+    --day-0:#E8ECF3;
+    --day-1:#BFDBFE;
+    --day-2:#60A5FA;
+    --day-3:#2563EB;
+    --day-hi-ink:#FFFFFF;
+    --day-future-bg:#F1F4F8;
+    --day-future-ink:#B0BAC8;
     --r:16px;
     --pad:18px;
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#0B1220;
+    --card:#151E2E;
+    --ink:#E8EDF6;
+    --ink-soft:#B8C4D6;
+    --muted:#8494AC;
+    --line:#243149;
+    --line-2:#33415C;
+    --hero-a:#1E3A8A;
+    --hero-b:#3B82F6;
+    --accent:#8AB0FF;
+    --gold:#FBBF24;
+    --gold-deep:#FCD34D;
+    --green:#4ADE80;
+    --red:#F87171;
+    --surface-2:#1C2637;
+    --seg-bg:#1C2637;
+    --input-bg:#111A29;
+    --btn-bg:#2E3D57;
+    --btn-fg:#E8EDF6;
+    --tint-bg:#16233C;
+    --tint-bg-2:#1E2F4D;
+    --tint-ink:#9EC0FF;
+    --warn-bg:#2A1E12;
+    --warn-ink:#F5B784;
+    --note-warn-bg:#2A2113;
+    --note-warn-ink:#F0C475;
+    --danger-line:#7F1D1D;
+    --toast-bg:#E8EDF6;
+    --toast-fg:#0B1220;
+    --ring:#0B1220;
+    --tabs-bg:rgba(11,18,32,.92);
+    --day-0:#1B2534;
+    --day-1:#1E3A6B;
+    --day-2:#2C5FC0;
+    --day-3:#4B87F5;
+    --day-future-bg:#141C2A;
+    --day-future-ink:#54627A;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -90,11 +171,11 @@
     border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px;overflow:hidden;
     transition:background .15s,border-color .15s;min-height:56px}
   .row.tap{cursor:pointer}
-  .row.tap:active{background:#F8FAFC}
+  .row.tap:active{background:var(--surface-2)}
   .row .edge{width:5px;align-self:stretch;flex:0 0 5px;border-radius:0}
-  .row.done{background:#F8FAFC}
+  .row.done{background:var(--surface-2)}
   .row .tick{flex:0 0 28px;height:28px;border-radius:9px;border:2px solid var(--line-2);
-    display:grid;place-items:center;transition:.15s;background:#fff}
+    display:grid;place-items:center;transition:.15s;background:var(--input-bg)}
   .row .tick svg{width:15px;height:15px;opacity:0;transition:opacity .15s}
   .row.done .tick svg{opacity:1}
   .row .plus{flex:0 0 34px;height:34px;border-radius:10px;display:grid;place-items:center;
@@ -114,12 +195,12 @@
   .row .sub .pips{display:inline-flex;gap:3px;vertical-align:-1px;margin-right:6px}
   .row .sub .pips i{width:7px;height:7px;border-radius:50%;background:var(--line-2);display:block}
   .row .sub .due{color:var(--gold-deep);font-weight:600}
-  .row .sub .met{color:#15803D;font-weight:600}
+  .row .sub .met{color:var(--green);font-weight:600}
 
   .empty{padding:22px 16px;border:1px dashed var(--line-2);border-radius:var(--r);
     text-align:center;color:var(--muted);font-size:14px;line-height:1.5;background:transparent}
-  .note{padding:12px 14px;border-radius:12px;background:#EFF6FF;color:#1E40AF;font-size:13.5px;line-height:1.45}
-  .note.warn{background:#FFFBEB;color:#92400E}
+  .note{padding:12px 14px;border-radius:12px;background:var(--tint-bg);color:var(--tint-ink);font-size:13.5px;line-height:1.45}
+  .note.warn{background:var(--note-warn-bg);color:var(--note-warn-ink)}
 
   /* ---------- forms ---------- */
   .form{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:8px}
@@ -127,50 +208,54 @@
   .field{margin-bottom:10px}
   .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
   .field input,.field select{width:100%;padding:11px 12px;border:1px solid var(--line-2);
-    border-radius:11px;background:#fff;font-size:16px;-webkit-appearance:none;appearance:none;min-height:44px}
+    border-radius:11px;background:var(--input-bg);font-size:16px;-webkit-appearance:none;appearance:none;min-height:44px}
   .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:34px}
   .field input:focus,.field select:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
   .two{display:flex;gap:10px}
   .two > *{flex:1}
-  .btn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--ink);color:#fff;
+  .btn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--btn-bg);color:var(--btn-fg);
     font-size:15px;font-weight:600;text-align:center;min-height:46px}
   .btn.primary{background:var(--hero-b)}
-  .btn.ghost{background:#fff;border:1px solid var(--line-2);color:var(--ink-soft)}
-  .btn.danger{background:#fff;border:1px solid #FECACA;color:var(--red)}
+  .btn.ghost{background:var(--card);border:1px solid var(--line-2);color:var(--ink-soft)}
+  .btn.danger{background:var(--card);border:1px solid var(--danger-line);color:var(--red)}
   .btn:active{transform:scale(.985)}
   .inline{display:flex;gap:8px;margin-top:8px}
   .inline .btn{flex:1}
 
   .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
   .sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer}
-  .sw[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px #fff}
+  .sw[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--card)}
 
   /* ---------- segmented control ---------- */
-  .seg{display:flex;background:#E2E8F0;border-radius:12px;padding:3px;margin-bottom:14px}
+  .seg{display:flex;background:var(--seg-bg);border-radius:12px;padding:3px;margin-bottom:14px}
   .seg button{flex:1;padding:8px 4px;font-size:13px;font-weight:600;border-radius:9px;color:var(--muted);min-height:38px}
-  .seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.12)}
+  .seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.12)}
 
   /* ---------- calendar ---------- */
   .calhead{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}
   .calhead b{font-size:16px;font-weight:700}
-  .calhead button{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--ink-soft);background:#fff;border:1px solid var(--line)}
+  .calhead button{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--ink-soft);background:var(--card);border:1px solid var(--line)}
   .calhead button:active{background:var(--bg)}
   .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;font-size:11px;color:var(--muted);text-align:center;margin-bottom:5px;font-weight:600}
   .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-  .day{aspect-ratio:1;border-radius:10px;background:#E8ECF3;position:relative;font-size:12.5px;font-weight:600;
+  .day{aspect-ratio:1;border-radius:10px;background:var(--day-0);position:relative;font-size:12.5px;font-weight:600;
     color:var(--ink-soft);display:flex;align-items:flex-start;justify-content:flex-start;padding:5px 0 0 6px;
     border:2px solid transparent;cursor:pointer}
   .day.blank{background:transparent;cursor:default}
-  .day[data-l="1"]{background:#BFDBFE}
-  .day[data-l="2"]{background:#60A5FA;color:#fff}
-  .day[data-l="3"]{background:#2563EB;color:#fff}
-  .day.future{background:#F1F4F8;color:#B0BAC8}
+  .day[data-l="1"]{background:var(--day-1)}
+  .day[data-l="2"]{background:var(--day-2);color:var(--day-hi-ink)}
+  .day[data-l="3"]{background:var(--day-3);color:var(--day-hi-ink)}
+  .day.future{background:var(--day-future-bg);color:var(--day-future-ink)}
   .day.today{border-color:var(--ink)}
-  .day.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--hero-b)}
+  .day.sel{box-shadow:0 0 0 2px var(--ring),0 0 0 4px var(--hero-b)}
   .day .v{position:absolute;right:5px;bottom:4px;font-size:9.5px;font-weight:600;opacity:.85}
   .legend{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin:10px 0 0;justify-content:flex-end}
   .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .legend i.l0{background:var(--day-0)}
+  .legend i.l1{background:var(--day-1)}
+  .legend i.l2{background:var(--day-2)}
+  .legend i.l3{background:var(--day-3)}
 
   .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 12px 10px}
@@ -184,43 +269,44 @@
   .entry button{color:var(--muted);font-size:13px;padding:6px 8px;border-radius:8px}
 
   /* ---------- tabs ---------- */
-  .tabs{position:fixed;left:0;right:0;bottom:0;background:rgba(243,245,249,.92);
+  .tabs{position:fixed;left:0;right:0;bottom:0;background:var(--tabs-bg);
     backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
     border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20}
   .tabs > div{max-width:480px;margin:0 auto;display:flex}
   .tabs button{flex:1;padding:10px 0 11px;font-size:11.5px;font-weight:600;color:var(--muted);
     display:flex;flex-direction:column;align-items:center;gap:3px;min-height:56px}
   .tabs button svg{width:22px;height:22px}
-  .tabs button[aria-current="true"]{color:var(--hero-a)}
+  .tabs button[aria-current="true"]{color:var(--accent)}
 
   .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(16px);
-    bottom:calc(env(safe-area-inset-bottom) + 82px);background:var(--ink);color:#fff;
+    bottom:calc(env(safe-area-inset-bottom) + 82px);background:var(--toast-bg);color:var(--toast-fg);
     padding:10px 16px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;
     pointer-events:none;transition:.22s;z-index:30;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.gold{background:var(--gold);color:var(--ink)}
+  .toast.gold{background:var(--gold);color:var(--on-gold)}
 
   /* ---------- daily goals ---------- */
   .goals-head{display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px}
   .goals-head h2{margin:0}
-  .goals-head button{font-size:13.5px;font-weight:600;color:var(--hero-a);padding:8px 10px;border-radius:9px;background:#EFF6FF}
+  .goals-head button{font-size:13.5px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg)}
   .task .tick{border-radius:50%}
   .task .cross{color:var(--muted);font-size:20px;line-height:1;padding:8px 12px 8px 4px}
   .quick{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:8px}
   .quick .line{display:flex;gap:8px;margin-bottom:8px}
   .quick .line:last-child{margin-bottom:0}
-  .quick input,.quick select{padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;background:#fff;font-size:16px;min-height:44px;-webkit-appearance:none;appearance:none}
+  .quick input,.quick select{padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--input-bg);font-size:16px;min-height:44px;-webkit-appearance:none;appearance:none}
   .quick input.name{flex:1;min-width:0}
   .quick input.xp{width:78px;flex:0 0 78px;text-align:center}
   .quick select{flex:1;min-width:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:32px}
   .quick .btn{width:auto;flex:0 0 auto;padding:10px 18px}
   .quick input:focus,.quick select:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
   .pendline{display:flex;justify-content:space-between;align-items:baseline;margin-top:-4px;font-size:13px;color:var(--muted)}
-  .remind{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:12px;background:#FFF7ED;color:#9A3412;font-size:13.5px;line-height:1.45;margin-top:12px}
+  .remind{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:12px;background:var(--warn-bg);color:var(--warn-ink);font-size:13.5px;line-height:1.45;margin-top:12px}
   .remind b{font-weight:700}
+  .remind.backup{border-left:3px solid var(--warn-ink)}
   .timelist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
-  .timechip{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:99px;background:#EFF6FF;color:var(--hero-a);font-weight:600;font-size:14px}
-  .timechip button{width:26px;height:26px;border-radius:50%;background:#DBEAFE;color:var(--hero-a);font-size:15px;display:grid;place-items:center}
+  .timechip{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:99px;background:var(--tint-bg);color:var(--accent);font-weight:600;font-size:14px}
+  .timechip button{width:26px;height:26px;border-radius:50%;background:var(--tint-bg-2);color:var(--accent);font-size:15px;display:grid;place-items:center}
   .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 10px}
   .toggle label{font-size:14.5px;font-weight:550;flex:1}
   .toggle input{width:22px;height:22px;accent-color:var(--hero-b);flex:0 0 22px}
@@ -359,6 +445,8 @@ function seed(){
     deadline:'2026-12-31',
     start:todayISO(),
     reminders:{times:['15:00','18:00','21:00'],badge:true},
+    theme:'auto',            // 'auto' follows the phone, or force 'light'/'dark'
+    lastBackup:null,         // YYYY-MM-DD of the last export, for the Home nudge
     lastTaskCat:c2
   };
 }
@@ -431,6 +519,8 @@ function normalise(d){
     times:Array.isArray(r.times)?[...new Set(r.times.filter(t=>/^([01]\d|2[0-3]):[0-5]\d$/.test(t)))].sort():s.reminders.times,
     badge:r.badge!==false
   };
+  out.theme=(d.theme==='light'||d.theme==='dark')?d.theme:'auto';
+  out.lastBackup=isValidISO(d.lastBackup)?d.lastBackup:null;
   out.lastTaskCat=fixCat(d.lastTaskCat);
   return out;
 }
@@ -531,6 +621,43 @@ function updateBadge(){
     (n>0?navigator.setAppBadge(n):navigator.clearAppBadge()).catch(()=>{});
   }catch(e){}
 }
+
+/* =================================================================
+   THEME
+   'auto' follows the phone. The head script settles this before the
+   first paint; keep effectiveTheme() and that script in step.
+================================================================== */
+const prefersDark=()=>!!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);
+const effectiveTheme=()=>state.theme==='light'||state.theme==='dark'?state.theme:(prefersDark()?'dark':'light');
+function applyTheme(){
+  const t=effectiveTheme();
+  document.documentElement.setAttribute('data-theme',t);
+  const m=document.getElementById('tc');
+  // the status bar behind the notch has to match the page, not the manifest
+  if(m) m.setAttribute('content',t==='dark'?'#0B1220':'#F3F5F9');
+}
+function setTheme(v){
+  state.theme=v==='light'||v==='dark'?v:'auto';
+  save();applyTheme();render();
+  toast(state.theme==='auto'?'Following the phone':state.theme==='dark'?'Dark':'Light');
+}
+if(window.matchMedia){
+  const mq=matchMedia('(prefers-color-scheme: dark)');
+  const onSystemChange=()=>{if(state.theme==='auto'){applyTheme();render();}};
+  if(mq.addEventListener) mq.addEventListener('change',onSystemChange);
+  else if(mq.addListener) mq.addListener(onSystemChange);   // older iOS Safari
+}
+
+/* =================================================================
+   BACKUP NUDGE
+   iOS can evict a web app's storage if it sits unopened for long
+   enough, and deleting the icon takes the data with it. Counting from
+   `start` when nothing has been exported yet means a fresh install
+   waits out the window before it says anything.
+================================================================== */
+const BACKUP_DAYS=14;
+const daysSinceBackup=()=>dayDiff(state.lastBackup||state.start,todayISO());
+const backupOverdue=()=>state.log.length>0&&daysSinceBackup()>=BACKUP_DAYS;
 
 /* =================================================================
    TOAST + CHARACTER FEEDBACK
@@ -818,7 +945,7 @@ async function exportData(){
   try{
     const file=new File([json],name,{type:'application/json'});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
-      await navigator.share({files:[file],title:name});return;
+      await navigator.share({files:[file],title:name});markBackedUp();return;
     }
   }catch(e){ if(e&&e.name==='AbortError') return; }
   try{
@@ -827,7 +954,14 @@ async function exportData(){
     a.href=URL.createObjectURL(blob);a.download=name;
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    markBackedUp();
   }catch(e){toast('Export failed on this browser');}
+}
+// The file has left the app; whether it was actually filed away is the
+// owner's business, but it is the only signal there is.
+function markBackedUp(){
+  state.lastBackup=todayISO();
+  save();render();toast('Backup saved');
 }
 function importData(input){
   const f=input.files&&input.files[0]; if(!f) return;
@@ -986,7 +1120,7 @@ function taskRow(t,opts){
     <div class="body"><div class="name">${esc(t.name)}</div>
       <div class="sub">${opts.sub||(t.done?'Done. Tap to undo.':esc(c.name))}</div></div>
     <div class="xp num" style="color:${t.done?'':c.color}">${fmt(t.xp)}</div>
-    ${opts.move?`<button class="cross" data-act="task-move" data-id="${id}" style="font-size:13px;font-weight:600;color:var(--hero-a)">Move to today</button>`:''}
+    ${opts.move?`<button class="cross" data-act="task-move" data-id="${id}" style="font-size:13px;font-weight:600;color:var(--accent)">Move to today</button>`:''}
     <button class="cross" data-act="task-del" data-id="${id}" aria-label="Remove goal">&times;</button>
   </div>`;
 }
@@ -1008,6 +1142,14 @@ function reminderBannerHTML(){
   const today=p.count?p.count+' still to do today: '+shown+'.':'Nothing left for today.';
   const earlier=p.overdue.length?' Plus '+p.overdue.length+' unfinished from earlier.':'';
   return `<div class="remind"><span>&#9202;</span><div><b>${passed} reminder.</b> ${today}${earlier}</div></div>`;
+}
+
+function backupNudgeHTML(){
+  if(!backupOverdue()) return '';
+  const n=daysSinceBackup();
+  const head=state.lastBackup?'Last backup '+n+' days ago.':'No backup yet, '+n+' days of entries.';
+  return `<div class="remind backup"><span>&#128190;</span><div><b>${head}</b> Deleting the app, or iOS clearing its storage, takes these entries with it.
+    <button data-act="export" style="display:block;margin-top:6px;font-weight:700;color:inherit;text-decoration:underline">Export a backup</button></div></div>`;
 }
 
 function viewHome(){
@@ -1040,6 +1182,7 @@ function viewHome(){
     `<div class="pendline"><span>Today</span>
       <span class="num">${fmt(todayTotal)} XP so far${pend.total?' &middot; '+pend.total+' left':' &middot; all done'}</span></div>`+
     reminderBannerHTML()+
+    backupNudgeHTML()+
     goalsBlock+
     (sections||`<div class="empty" style="margin-top:12px">Nothing to track yet. Add sections, habits and objectives under Manage.</div>`)+
     `<div class="inline"><button class="btn ghost" data-act="undo">Undo last entry</button></div>`;
@@ -1060,7 +1203,7 @@ function viewCalendar(){
     if(v>0){monthXP+=v;active++;if(v>best){best=v;bestDay=iso;}}
     const l=v===0?0:v<25?1:v<60?2:3;
     const planned=future?state.tasks.filter(x=>x.date===iso).length:0;
-    cells.push(`<div class="day ${future?'future':''} ${iso===t?'today':''} ${iso===cal.sel?'sel':''}" data-l="${l}" data-act="pick" data-id="${iso}">${d}${v?'<span class="v num">'+fmt(v)+'</span>':(planned?'<span class="v num" style="opacity:1;color:var(--hero-a)">'+planned+' planned</span>':'')}</div>`);
+    cells.push(`<div class="day ${future?'future':''} ${iso===t?'today':''} ${iso===cal.sel?'sel':''}" data-l="${l}" data-act="pick" data-id="${iso}">${d}${v?'<span class="v num">'+fmt(v)+'</span>':(planned?'<span class="v num" style="opacity:1;color:var(--accent)">'+planned+' planned</span>':'')}</div>`);
   }
   while(cells.length%7) cells.push('<div class="day blank"></div>');
 
@@ -1100,7 +1243,7 @@ function viewCalendar(){
     </div>
     <div class="dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
     <div class="cal">${cells.join('')}</div>
-    <div class="legend">Less <i style="background:#E8ECF3"></i><i style="background:#BFDBFE"></i><i style="background:#60A5FA"></i><i style="background:#2563EB"></i> More</div>
+    <div class="legend">Less <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i> More</div>
     <div class="stats">
       <div class="stat"><b class="num">${fmt(monthXP)}</b><span>XP this month</span></div>
       <div class="stat"><b class="num">${active}</b><span>active day${active===1?'':'s'}</span></div>
@@ -1177,6 +1320,13 @@ function viewManage(){
       </div>
       <button class="btn primary" data-act="save-target">Save target</button>
     </div>
+    <div class="form"><h3>Appearance</h3>
+      <div class="seg" style="margin-bottom:0">
+        ${[['auto','Auto'],['light','Light'],['dark','Dark']].map(t=>
+          `<button data-act="theme" data-id="${t[0]}" aria-pressed="${state.theme===t[0]}">${t[1]}</button>`).join('')}
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:8px">Auto follows the phone's own light or dark setting. Currently showing ${effectiveTheme()}.</div>
+    </div>
     <div class="form"><h3>Reminders</h3>
       <div class="toggle"><label for="f-badge">Show how many things are left on the app icon</label><input type="checkbox" id="f-badge" ${state.reminders.badge?'checked':''}></div>
       <div class="note" style="margin-bottom:12px">The app cannot send notifications by itself: iPhone web apps only receive them from a server, and this one has none. The icon badge above works without one. For alerts at set times, use the Shortcuts steps below with your chosen times.</div>
@@ -1195,6 +1345,10 @@ function viewManage(){
       <div class="note ${persists?'':'warn'}" style="margin-bottom:10px">${persists
         ?'Everything is stored on this device only and never leaves it. Deleting the app from the home screen deletes the data, so export a backup now and then.'
         :'This preview cannot save to the device, so entries vanish on reload. Once hosted at your own address it saves normally.'}</div>
+      <div style="font-size:12.5px;color:${backupOverdue()?'var(--warn-ink)':'var(--muted)'};margin-bottom:10px">${
+        state.lastBackup
+          ?'Last backup '+esc(fmtShort(state.lastBackup))+', '+daysSinceBackup()+' day'+(daysSinceBackup()===1?'':'s')+' ago.'
+          :'No backup exported yet.'}</div>
       <div class="inline"><button class="btn ghost" data-act="export">Export backup</button>
         <label class="btn ghost" style="cursor:pointer">Restore backup<input type="file" accept=".json,application/json" class="hidden" id="f-import"></label></div>
       <div class="inline"><button class="btn danger" data-act="reset">Reset everything</button></div>
@@ -1245,6 +1399,7 @@ const ACTIONS={
   task:id=>toggleTask(id),
   'task-del':id=>deleteTask(id),
   'task-move':id=>moveTaskToToday(id),
+  theme:v=>setTheme(v),
   'rem-add':()=>addReminderTime(),
   'rem-del':v=>removeReminderTime(v)
 };
@@ -1300,6 +1455,7 @@ window.addEventListener('focus',checkDayRollover);
 window.addEventListener('pageshow',checkDayRollover);
 setInterval(checkDayRollover,60000);
 
+applyTheme();
 render();
 
 if('serviceWorker' in navigator){
