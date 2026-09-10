@@ -70,6 +70,14 @@ do work:
 
 - The app follows the phone's light or dark setting on its own. To pin it one
   way regardless, Settings > Appearance has Auto, Light and Dark.
+- **Weight** lives at the bottom of Home and earns no XP on purpose. Weigh in
+  each morning and log it (comma or dot decimals both work); logging again the
+  same day just corrects the number. Daily readings bounce around with water
+  and food, so the chart plots each Monday-Sunday week's **average** — one dot
+  per week, joined by a line, with your goal as a dashed line to aim for. The
+  current week's dot is hollow because its average can still move. Set or
+  change the goal from the card itself or Settings > Weight goal; forgot a
+  day? Fix it from that day in the calendar.
 - Sections group habits and objectives and give them a colour.
 - Habits are "once a day" (tap to log, tap again to undo), "repeatable"
   (each tap adds XP), or "times a week".

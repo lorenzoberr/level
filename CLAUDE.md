@@ -28,7 +28,14 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 ## Architecture (index.html)
 
 - State: `{cats, habits, goals, tasks, log, target, deadline, start, reminders,
-  theme, lastBackup, lastTaskCat}`.
+  theme, lastBackup, weight, lastTaskCat}`.
+  - `weight`: `{goal, entries:[{date, kg}]}` — deliberately outside the XP
+    system: no `log` entries, no badge, no pending count. One entry per day
+    (logging again the same day corrects it), 20-300 kg, one decimal; `kgIn()`
+    accepts a comma decimal because the Italian iOS keypad types one. Home
+    shows the card and chart; the chart plots each Monday-Sunday week's
+    average, spaced by real time, the running week hollow/dashed. Past days
+    are fixed from the calendar's day panel, like forgotten habits.
   - `habits`: `mode` is `daily` (toggle, once per day), `multi` (repeatable), or
     `weekly` (N sessions per Monday–Sunday week). Weekly habits also carry
     `perWeek` (1–14) and `bonus` (0 = no bonus); both fields are present on every

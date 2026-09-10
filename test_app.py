@@ -43,7 +43,7 @@ with sync_playwright() as p:
     check("no JS errors on load", not errors, errors)
     check("header shows local date", "Monday 7 September" in page.inner_text("#today"), page.inner_text("#today"))
     check("starts at level 1 / 0 XP", "Level 1" in page.inner_text(".lvl") and page.inner_text(".total").strip() == "0")
-    check("three seeded sections on home", page.locator("h2 .dot").count() == 3)
+    check("three seeded sections plus the weight section on home", page.locator("h2 .dot").count() == 4)
     page.screenshot(path="shots/home_empty.png", full_page=True)
 
     # log the gym (multi) twice, steps (daily) once, then toggle steps off
@@ -584,6 +584,90 @@ with sync_playwright() as p:
           page.locator(".remind.backup").count() == 1
           and "Last backup 19 days ago" in page.locator(".remind.backup").inner_text(),
           page.locator(".remind.backup").inner_text() if page.locator(".remind.backup").count() else "no nudge")
+    ctx.close()
+
+    # ---------- 3f. weight tracking ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    werr2 = []
+    page.on("pageerror", lambda e: werr2.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 10, 8, 0, 0, tzinfo=ROME))  # Thursday
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector(".hero")
+
+    check("weight card on home with a log field", page.locator(".wcard #f-wt").count() == 1)
+    # goal set inline on first use, with a comma decimal like the Italian keypad types
+    page.fill("#f-w-goal-h", "70")
+    page.locator("button[data-act=wt-goal-home]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("inline goal saved and its row gone", d["weight"]["goal"] == 70 and page.locator("#f-w-goal-h").count() == 0)
+
+    page.fill("#f-wt", "72,6")
+    page.locator("button[data-act=wt-log]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("comma decimal logged as 72.6", d["weight"]["entries"] == [{"date": "2026-09-10", "kg": 72.6}], d["weight"]["entries"])
+    check("button flips to Update", "Update" in page.locator("button[data-act=wt-log]").inner_text())
+    page.fill("#f-wt", "72.4")
+    page.locator("button[data-act=wt-log]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("logging the same day again corrects it, one entry only",
+          d["weight"]["entries"] == [{"date": "2026-09-10", "kg": 72.4}], d["weight"]["entries"])
+    check("weight never touches XP", page.inner_text(".total").strip() == "0" and d["log"] == [])
+    for bad in ("7,2", "500", "abc"):
+        page.fill("#f-wt", bad)
+        page.locator("button[data-act=wt-log]").click(); page.wait_for_timeout(50)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("nonsense weights rejected", len(d["weight"]["entries"]) == 1 and d["weight"]["entries"][0]["kg"] == 72.4)
+
+    # two settled weeks of history + this week: averages, line, goal line, hollow point
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.weight.entries = [
+          {date:'2026-08-24',kg:73.4},{date:'2026-08-26',kg:73.0},{date:'2026-08-28',kg:73.2}, // avg 73.2
+          {date:'2026-08-31',kg:73.0},{date:'2026-09-02',kg:72.6},{date:'2026-09-04',kg:72.8}, // avg 72.8
+          {date:'2026-09-07',kg:72.2},{date:'2026-09-08',kg:72.6},{date:'2026-09-10',kg:72.1}  // this week: avg 72.3
+        ];
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    meta = page.locator(".wmeta").inner_text()
+    check("weekly average shown for the running week", "72.3 kg" in meta and "3 mornings so far" in meta, meta)
+    check("change against last week's average", "0.5 kg vs last week" in meta, meta)
+    check("distance to goal", "2.3 kg above goal" in meta, meta)
+    svg = page.locator(".wchart svg")
+    check("one point per week", svg.locator("circle").count() == 3)
+    check("running week's point is hollow", svg.locator("circle[stroke-width='2']").count() == 1)
+    check("weekly points joined by a line", svg.locator("polyline").count() == 1)
+    check("goal drawn as a labelled dashed line",
+          svg.locator("line[stroke-dasharray='5 4']").count() == 1 and "Goal 70.0" in svg.inner_text())
+    check("segment into the running week is dashed", svg.locator("line[stroke-dasharray='4 4']").count() == 1)
+    page.screenshot(path="shots/weight_chart.png", full_page=True)
+
+    # calendar: fix yesterday, remove it, and no weight form on a future day
+    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".cal .day", has_text="9").first.click(); page.wait_for_timeout(60)
+    page.fill("#f-wt-day", "71.9")
+    page.locator("button[data-act=wt-log-day]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("a past day's weight can be added from the calendar",
+          {"date": "2026-09-09", "kg": 71.9} in d["weight"]["entries"], d["weight"]["entries"])
+    page.locator("button[data-act=wt-del-day]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("and removed again", not [e for e in d["weight"]["entries"] if e["date"] == "2026-09-09"])
+    page.locator(".cal .day", has_text="25").first.click(); page.wait_for_timeout(60)
+    check("no weight form on a future day", page.locator("#f-wt-day").count() == 0)
+
+    # a corrupted backup keeps the sane entries and drops the junk
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.weight.goal = 'seventy';
+        s.weight.entries.push({date:'2026-09-01',kg:9999},{date:'not-a-date',kg:72},{date:'2026-09-03'},
+                              {date:'2026-09-02',kg:72.0},{date:'2026-09-02',kg:71.0});
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    days = [e["date"] for e in d["weight"]["entries"]]
+    check("normalise drops junk weights, keeps one entry per day",
+          d["weight"]["goal"] is None and len(days) == len(set(days))
+          and all(20 <= e["kg"] <= 300 for e in d["weight"]["entries"]), d["weight"])
+    check("no JS errors in the weight flow", not werr2, werr2)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------

@@ -304,6 +304,21 @@
   .remind{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:12px;background:var(--warn-bg);color:var(--warn-ink);font-size:13.5px;line-height:1.45;margin-top:12px}
   .remind b{font-weight:700}
   .remind.backup{border-left:3px solid var(--warn-ink)}
+  /* ---------- weight ---------- */
+  .wcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:8px}
+  .wlog{display:flex;gap:8px}
+  .wlog input{flex:1;min-width:0;padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;
+    background:var(--input-bg);font-size:16px;min-height:44px;-webkit-appearance:none;appearance:none}
+  .wlog input:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
+  .wlog .btn{width:auto;flex:0 0 auto;padding:10px 16px}
+  .wmeta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin-top:10px}
+  .wmeta b{color:var(--ink-soft);font-weight:700}
+  .wmeta .good{color:var(--green);font-weight:600}
+  .wmeta .bad{color:var(--gold-deep);font-weight:600}
+  .wchart{margin-top:12px}
+  .wchart svg{width:100%;height:auto;display:block}
+  .whint{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.45}
+
   .timelist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
   .timechip{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:99px;background:var(--tint-bg);color:var(--accent);font-weight:600;font-size:14px}
   .timechip button{width:26px;height:26px;border-radius:50%;background:var(--tint-bg-2);color:var(--accent);font-size:15px;display:grid;place-items:center}
@@ -389,6 +404,12 @@ const fmt=n=>Number(n).toLocaleString('en-GB');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clampInt=(v,lo,hi)=>{const n=parseInt(v,10);return Number.isFinite(n)?Math.min(hi,Math.max(lo,n)):null;}; // repair imported data
 const intIn=(v,lo,hi)=>{const t=String(v??'').trim();if(!/^-?\d+$/.test(t))return null;const n=parseInt(t,10);return n>=lo&&n<=hi?n:null;}; // validate user input
+// Weights come from the iPhone decimal pad, which types a comma on an Italian
+// keyboard. 20-300 kg, kept to one decimal.
+const kgIn=v=>{const t=String(v??'').trim().replace(',','.');
+  if(!/^\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
+  const n=parseFloat(t); return n>=20&&n<=300?Math.round(n*10)/10:null;};
+const fmtKg=n=>(Math.round(n*10)/10).toFixed(1);
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const fmtLong=iso=>{const d=parseLocal(iso);return d?d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}):iso;};
 const fmtShort=iso=>{const d=parseLocal(iso);return d?d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):iso;};
@@ -447,6 +468,9 @@ function seed(){
     reminders:{times:['15:00','18:00','21:00'],badge:true},
     theme:'auto',            // 'auto' follows the phone, or force 'light'/'dark'
     lastBackup:null,         // YYYY-MM-DD of the last export, for the Home nudge
+    // weight rides outside the XP system entirely: no log entries, no badge.
+    // One entry per day; the chart plots each Monday-Sunday week's average.
+    weight:{goal:null,entries:[]},
     lastTaskCat:c2
   };
 }
@@ -519,6 +543,20 @@ function normalise(d){
     times:Array.isArray(r.times)?[...new Set(r.times.filter(t=>/^([01]\d|2[0-3]):[0-5]\d$/.test(t)))].sort():s.reminders.times,
     badge:r.badge!==false
   };
+  // weight: one entry per calendar day, 20-300 kg, kept to one decimal
+  const wsrc=d.weight&&typeof d.weight==='object'?d.weight:{};
+  const numKg=v=>{const n=typeof v==='number'?v:parseFloat(v);
+    return Number.isFinite(n)&&n>=20&&n<=300?Math.round(n*10)/10:null;};
+  const wSeen=new Set();
+  out.weight={
+    goal:numKg(wsrc.goal),
+    entries:(Array.isArray(wsrc.entries)?wsrc.entries:[])
+      .filter(e=>e&&typeof e==='object'&&isValidISO(e.date)&&numKg(e.kg)!==null)
+      .map(e=>({date:e.date,kg:numKg(e.kg)}))
+      .filter(e=>{if(wSeen.has(e.date))return false;wSeen.add(e.date);return true;})
+      .sort((a,b)=>a.date<b.date?-1:1)
+  };
+
   out.theme=(d.theme==='light'||d.theme==='dark')?d.theme:'auto';
   out.lastBackup=isValidISO(d.lastBackup)?d.lastBackup:null;
   out.lastTaskCat=fixCat(d.lastTaskCat);
@@ -587,6 +625,21 @@ function weeklyDue(h,iso){
   if(h.mode!=='weekly') return false;
   const left=weeklyLeft(h,iso);
   return left>0&&left>=daysLeftInWeek(iso);
+}
+
+/* ---- weight ----
+   Daily readings bounce with water and food; the average over a Monday-Sunday
+   week is the number worth trending, so that is what the chart plots. */
+const weightOn=iso=>state.weight.entries.find(e=>e.date===iso)||null;
+function weightWeeks(){
+  const m=new Map();
+  for(const e of state.weight.entries){
+    const w=weekStart(e.date);
+    if(!m.has(w)) m.set(w,[]);
+    m.get(w).push(e.kg);
+  }
+  return [...m.entries()].sort((a,b)=>a[0]<b[0]?-1:1)
+    .map(([week,kgs])=>({week,n:kgs.length,avg:kgs.reduce((s,x)=>s+x,0)/kgs.length}));
 }
 function streak(){
   const days=new Set(state.log.map(e=>e.date));
@@ -793,6 +846,35 @@ function deleteTask(id){
 function moveTaskToToday(id){
   const t=state.tasks.find(x=>x.id===id); if(!t||t.done) return;
   t.date=todayISO();save();render();toast('Moved to today');
+}
+
+/* ---- weight ---- */
+function logWeight(iso,val){
+  if(!isValidISO(iso)||dayDiff(todayISO(),iso)>0) return toast('Cannot log a future day');
+  const kg=kgIn(val);
+  if(kg===null) return toast('Weight must be between 20 and 300 kg');
+  const ex=weightOn(iso);
+  if(ex&&ex.kg===kg) return toast('Already logged: '+fmtKg(kg)+' kg');
+  if(ex) ex.kg=kg;                              // same day again just corrects it
+  else state.weight.entries.push({date:iso,kg});
+  state.weight.entries.sort((a,b)=>a.date<b.date?-1:1);
+  save();render();
+  toast(ex?'Changed to '+fmtKg(kg)+' kg':fmtKg(kg)+' kg logged');
+}
+function removeWeight(iso){
+  if(!weightOn(iso)) return;
+  state.weight.entries=state.weight.entries.filter(e=>e.date!==iso);
+  save();render();toast('Weight entry removed');
+}
+function saveWeightGoal(val){
+  const t=String(val??'').trim();
+  if(t===''){                                    // empty clears the goal line
+    if(state.weight.goal===null) return toast('Type a goal weight first');
+    state.weight.goal=null;save();render();toast('Goal removed');return;
+  }
+  const kg=kgIn(t);
+  if(kg===null) return toast('Goal must be between 20 and 300 kg');
+  state.weight.goal=kg;save();render();toast('Goal: '+fmtKg(kg)+' kg');
 }
 
 /* ---- reminders ---- */
@@ -1144,6 +1226,94 @@ function reminderBannerHTML(){
   return `<div class="remind"><span>&#9202;</span><div><b>${passed} reminder.</b> ${today}${earlier}</div></div>`;
 }
 
+/* One point per week at that week's average, spaced by real time so a skipped
+   week shows as a longer gap, joined by a line. The running week's point is
+   hollow and its segment dashed: that number can still move. */
+function weightChartSVG(weeks){
+  const shown=weeks.slice(-26);                       // about six months fits the width
+  if(!shown.length) return '';
+  const goal=state.weight.goal;
+  const W=340,H=156,L=36,R=12,T=14,B=24;
+  const vals=shown.map(p=>p.avg); if(goal!==null) vals.push(goal);
+  let lo=Math.min(...vals),hi=Math.max(...vals);
+  const padY=Math.max(0.4,(hi-lo)*0.15); lo-=padY; hi+=padY;
+  const t0=parseLocal(shown[0].week).getTime(),t1=parseLocal(shown[shown.length-1].week).getTime();
+  const x=i=>t1===t0?L+(W-L-R)/2:L+(parseLocal(shown[i].week).getTime()-t0)/(t1-t0)*(W-L-R);
+  const y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  const px=i=>x(i).toFixed(1),py=v=>y(v).toFixed(1);
+  let s='';
+  const step=[0.2,0.5,1,2,5,10,20,50].find(k=>(hi-lo)/k<=4)||100;
+  for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step){
+    s+=`<line x1="${L}" y1="${py(v)}" x2="${W-R}" y2="${py(v)}" style="stroke:var(--line)" stroke-width="1"/>`+
+       `<text x="${L-6}" y="${(y(v)+3).toFixed(1)}" text-anchor="end" font-size="9.5" style="fill:var(--muted)" class="num">${step<1?v.toFixed(1):Math.round(v)}</text>`;
+  }
+  if(goal!==null){
+    s+=`<line x1="${L}" y1="${py(goal)}" x2="${W-R}" y2="${py(goal)}" style="stroke:var(--green)" stroke-width="1.5" stroke-dasharray="5 4" opacity=".85"/>`+
+       `<text x="${W-R}" y="${(y(goal)-4).toFixed(1)}" text-anchor="end" font-size="9.5" font-weight="600" style="fill:var(--green)">Goal ${fmtKg(goal)}</text>`;
+  }
+  const cur=shown[shown.length-1].week===weekStart(todayISO());
+  if(shown.length>1){
+    const solid=cur?shown.length-1:shown.length;
+    if(solid>1) s+=`<polyline points="${shown.slice(0,solid).map((p,i)=>px(i)+','+py(p.avg)).join(' ')}" fill="none" style="stroke:var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(cur) s+=`<line x1="${px(shown.length-2)}" y1="${py(shown[shown.length-2].avg)}" x2="${px(shown.length-1)}" y2="${py(shown[shown.length-1].avg)}" style="stroke:var(--accent)" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>`;
+  }
+  shown.forEach((p,i)=>{
+    s+=cur&&i===shown.length-1
+      ?`<circle cx="${px(i)}" cy="${py(p.avg)}" r="3.5" style="fill:var(--card);stroke:var(--accent)" stroke-width="2"/>`
+      :`<circle cx="${px(i)}" cy="${py(p.avg)}" r="3" style="fill:var(--accent)"/>`;
+  });
+  const lab=i=>{const d=parseLocal(shown[i].week);return d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3);};
+  const marks=[[0,'start'],[shown.length-1,'end']];
+  if(shown.length>=5) marks.splice(1,0,[Math.floor((shown.length-1)/2),'middle']);
+  const seen=new Set();
+  marks.forEach(([i,a])=>{
+    if(seen.has(i)) return; seen.add(i);
+    s+=`<text x="${px(i)}" y="${H-8}" text-anchor="${shown.length===1?'middle':a}" font-size="9.5" style="fill:var(--muted)">${lab(i)}</text>`;
+  });
+  return `<div class="wchart"><svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Weekly average weight">${s}</svg></div>`;
+}
+
+function weightSectionHTML(){
+  const weeks=weightWeeks(),t=todayISO(),goal=state.weight.goal;
+  const today=weightOn(t);
+  const latest=weeks.length?weeks[weeks.length-1]:null;
+  const isCur=latest&&latest.week===weekStart(t);
+  let meta='';
+  if(latest){
+    const parts=[`<span><b class="num">${fmtKg(latest.avg)} kg</b> ${isCur?'this week, '+latest.n+' morning'+(latest.n===1?'':'s')+' so far':'week of '+esc(fmtShort(latest.week))}</span>`];
+    if(weeks.length>1){
+      const prev=weeks[weeks.length-2],d=latest.avg-prev.avg;
+      if(Math.abs(d)<0.05) parts.push('<span>level with last week</span>');
+      else{
+        // moving toward the goal reads green, away amber; plain with no goal
+        const toward=goal===null?null:Math.abs(latest.avg-goal)<Math.abs(prev.avg-goal);
+        parts.push(`<span class="${toward===null?'':toward?'good':'bad'} num">${d<0?'&#9662;':'&#9652;'} ${fmtKg(Math.abs(d))} kg vs last week</span>`);
+      }
+    }
+    if(goal!==null){
+      const diff=latest.avg-goal;
+      parts.push(Math.abs(diff)<=0.2?'<span class="good">at your goal</span>'
+        :`<span class="num">${fmtKg(Math.abs(diff))} kg ${diff>0?'above':'below'} goal</span>`);
+    }
+    meta=`<div class="wmeta">${parts.join('')}</div>`;
+  }
+  const goalRow=goal===null?`<div class="wlog" style="margin-top:8px">
+      <input id="f-w-goal-h" inputmode="decimal" placeholder="Goal weight, e.g. 70" aria-label="Goal weight in kilograms" autocomplete="off">
+      <button class="btn ghost" data-act="wt-goal-home">Set goal</button>
+    </div>`:'';
+  const hint=!state.weight.entries.length
+    ?`<div class="whint">Weigh in each morning and log it here. The chart plots each week's average, so one salty dinner cannot bend the line.${goal===null?' The goal draws the line to aim for.':''}</div>`
+    :weeks.length===1?`<div class="whint">First week underway. The trend line starts once a second week begins.</div>`:'';
+  return `<h2><span class="dot" style="background:var(--hero-b)"></span>Weight${latest?`<span class="count num">${fmtKg(latest.avg)} kg</span>`:''}</h2>
+    <div class="wcard">
+      <div class="wlog">
+        <input id="f-wt" inputmode="decimal" value="${today?fmtKg(today.kg):''}" placeholder="${state.weight.entries.length?fmtKg(state.weight.entries[state.weight.entries.length-1].kg):'72.4'}" aria-label="Today's weight in kilograms" autocomplete="off">
+        <button class="btn primary" data-act="wt-log">${today?'Update':'Log today'}</button>
+      </div>
+      ${goalRow}${meta}${weightChartSVG(weeks)}${hint}
+    </div>`;
+}
+
 function backupNudgeHTML(){
   if(!backupOverdue()) return '';
   const n=daysSinceBackup();
@@ -1185,6 +1355,7 @@ function viewHome(){
     backupNudgeHTML()+
     goalsBlock+
     (sections||`<div class="empty" style="margin-top:12px">Nothing to track yet. Add sections, habits and objectives under Manage.</div>`)+
+    weightSectionHTML()+
     `<div class="inline"><button class="btn ghost" data-act="undo">Undo last entry</button></div>`;
 }
 
@@ -1234,6 +1405,14 @@ function viewCalendar(){
     <div class="form" style="margin-top:10px"><h3>Log a habit for this day</h3>
       <div class="field"><select id="f-cal-habit">${habitOptions}</select></div>
       <button class="btn ghost" data-act="log-day" data-id="${sel}">Log it for ${sel===t?'today':fmtShort(sel)}</button>
+    </div>`}
+    ${selFuture?'':`
+    <div class="form" style="margin-top:10px"><h3>Weight on this day</h3>
+      <div class="wlog">
+        <input id="f-wt-day" inputmode="decimal" value="${(e=>e?fmtKg(e.kg):'')(weightOn(sel))}" placeholder="kg" aria-label="Weight in kilograms" autocomplete="off">
+        <button class="btn primary" data-act="wt-log-day" data-id="${sel}">Save</button>
+        ${weightOn(sel)?`<button class="btn ghost" data-act="wt-del-day" data-id="${sel}">Remove</button>`:''}
+      </div>
     </div>`}`;
 
   return `<div class="calhead">
@@ -1320,6 +1499,11 @@ function viewManage(){
       </div>
       <button class="btn primary" data-act="save-target">Save target</button>
     </div>
+    <div class="form"><h3>Weight goal</h3>
+      <div class="field"><label for="f-w-goal">Goal weight (kg)</label><input id="f-w-goal" inputmode="decimal" value="${state.weight.goal!==null?fmtKg(state.weight.goal):''}" placeholder="70.0" autocomplete="off"></div>
+      <button class="btn primary" data-act="wt-goal">Save goal</button>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:8px">Weight earns no XP: log it on Home each morning and the chart there follows each week's average. Save with the field empty to take the goal line off the chart.${state.weight.entries.length?' '+state.weight.entries.length+' morning'+(state.weight.entries.length===1?'':'s')+' logged so far.':''}</div>
+    </div>
     <div class="form"><h3>Appearance</h3>
       <div class="seg" style="margin-bottom:0">
         ${[['auto','Auto'],['light','Light'],['dark','Dark']].map(t=>
@@ -1400,6 +1584,11 @@ const ACTIONS={
   'task-del':id=>deleteTask(id),
   'task-move':id=>moveTaskToToday(id),
   theme:v=>setTheme(v),
+  'wt-log':()=>logWeight(todayISO(),(document.getElementById('f-wt')||{}).value),
+  'wt-log-day':iso=>logWeight(iso,(document.getElementById('f-wt-day')||{}).value),
+  'wt-del-day':iso=>removeWeight(iso),
+  'wt-goal':()=>saveWeightGoal((document.getElementById('f-w-goal')||{}).value),
+  'wt-goal-home':()=>saveWeightGoal((document.getElementById('f-w-goal-h')||{}).value),
   'rem-add':()=>addReminderTime(),
   'rem-del':v=>removeReminderTime(v)
 };
@@ -1430,11 +1619,13 @@ document.addEventListener('keydown',e=>{
   if(!el) return;
   e.preventDefault(); el.click();
 });
-// Enter in a form field triggers that form's primary button
+// Enter in a form field triggers that form's primary button. A .wlog line is
+// self-contained (the weight card can hold two of them), so it wins first.
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||!(e.target instanceof HTMLInputElement)||e.target.type==='date') return;
-  const box=e.target.closest('.form,.quick');
-  const btn=box&&box.querySelector('.btn.primary');
+  const line=e.target.closest('.wlog');
+  const box=line||e.target.closest('.form,.quick');
+  const btn=box&&box.querySelector(line?'.btn':'.btn.primary');
   if(btn){e.preventDefault();btn.click();}
 });
 
