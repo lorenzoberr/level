@@ -28,7 +28,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 ## Architecture (index.html)
 
 - State: `{cats, habits, goals, tasks, log, target, deadline, start, reminders,
-  theme, lastBackup, weight, lastTaskCat}`.
+  theme, hideDone, lastBackup, weight, lastTaskCat}`.
   - `weight`: `{goal, entries:[{date, kg}]}` — deliberately outside the XP
     system: no `log` entries, no badge, no pending count. One entry per day
     (logging again the same day corrects it), 20-300 kg, one decimal; `kgIn()`
@@ -40,7 +40,11 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     `weekly` (N sessions per Monday–Sunday week). Weekly habits also carry
     `perWeek` (1–14) and `bonus` (0 = no bonus); both fields are present on every
     habit so the shape is stable, and are ignored outside `weekly`.
-  - `goals`: one-off objectives; `done` + `doneDate`.
+  - `goals`: one-off objectives; `done` + `doneDate`, plus an optional
+    `deadline`. Completing by the deadline pays full XP; after it, half
+    (`goalAward()`), snapshotted into the single log entry. Editing a
+    completed objective re-judges its entry against the current deadline
+    using the day it was actually completed.
   - `tasks`: daily goals tied to a `date`; overdue ones surface on Home.
   - `log`: XP entries `{type: habit|goal|task|bonus, refId, name, xp, date, at}`. Total XP
     is always the sum of `log`. `done` flags are re-derived from the log in `normalise()`.
@@ -49,8 +53,9 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     the week. They are derived, so `undoLast()` steps over them and the calendar
     gives them no Remove button — remove one of the week's sessions instead.
 - Level curve: `xpForLevel(L) = 100(L-1) + 25(L-1)(L-2)`.
-- Rendering: five tabs, one view function each (`viewHome`, `viewTasks`,
-  `viewSections`, `viewCalendar`, `viewSettings`); each returns an HTML string
+- Rendering: six tabs, one view function each (`viewHome`, `viewTasks`,
+  `viewSections`, `viewCalendar`, `viewProgress`, `viewSettings`); each
+  returns an HTML string
   and `render()` replaces `#view`. All clicks go through one delegated listener
   keyed on `data-act` / `data-id`. Never use inline `onclick`.
   - **Home** is the daily loop only: tick habits, tick today's goals, log the
@@ -63,7 +68,15 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     objectives inside it. Add/edit forms open in place inside the box they
     belong to: UI state `editing` ({type,id}) for existing items, `adding`
     ({type,cat}) for new ones; a successful save or Cancel clears both.
+  - **Progress** reviews a day, week or month: XP earned against the daily
+    pace `target / (start..deadline)` demands, a plain-words verdict, bars per
+    day, then "Went well" and "Worth watching" lists. Encouraging in tone,
+    but the misses are named with counts.
   - **Settings** holds target, weight goal, appearance, reminders, data.
+  - `state.hideDone` (persisted) tucks away ticked daily habits, met weekly
+    habits, done daily goals and done objectives across Home, Tasks and
+    Sections; every hidden list leaves a tappable "N done hidden" hint.
+
 - All user strings go through `esc()` before entering HTML.
 - **Theme.** Every colour the app paints is a CSS custom property on `:root`;
   `:root[data-theme="dark"]` restates the values and nothing else. Never write a
@@ -100,9 +113,8 @@ The URL must never change after install: data is tied to the origin.
 
 ## Owner's wishlist (not built, in priority order)
 
-1. Loss signals beyond the one that exists: weekly consistency %, days missed,
-   streak freeze. (A weekly habit already turns amber and says "go today" once
-   the days left in the week equal the sessions still owed — see `weeklyDue()`.)
+1. Streak freeze (the other loss signals now live in the Progress tab and
+   `weeklyDue()`).
 2. Daily cap for repeatable habits.
 3. Measurable objectives (current / target number).
 4. Real push notifications would need a small server (e.g. Cloudflare Worker

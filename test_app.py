@@ -520,7 +520,7 @@ with sync_playwright() as p:
 
     # every painted surface must come from a token: nothing may stay pure white
     whites = []
-    for t in ("home", "tasks", "sections", "calendar", "settings"):
+    for t in ("home", "tasks", "sections", "calendar", "progress", "settings"):
         page.locator("button[data-act=tab][data-id=%s]" % t).click(); page.wait_for_timeout(80)
         whites += page.evaluate("""() => [...document.querySelectorAll('#view *, .tabs, .tabs *, .toast')]
             .filter(e => !e.closest('.hero'))   // the hero bar is white on its blue gradient, by design
@@ -678,6 +678,147 @@ with sync_playwright() as p:
           d["weight"]["goal"] is None and len(days) == len(set(days))
           and all(20 <= e["kg"] <= 300 for e in d["weight"]["entries"]), d["weight"])
     check("no JS errors in the weight flow", not werr2, werr2)
+    ctx.close()
+
+    # ---------- 3g. objective deadlines: full XP on time, half after ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    gerr = []
+    page.on("pageerror", lambda e: gerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 10, 9, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector(".hero")
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-name", "Bench press 80 kg")
+    page.fill("#f-g-xp", "300")
+    page.fill("#f-g-deadline", "2026-11-30")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    row = lambda: page.locator(".secbox .row", has_text="80 kg")
+    check("objective shows its deadline", "by 30 Nov 2026" in row().inner_text(), row().inner_text())
+    row().locator(".tick").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("completed before the deadline pays the full XP",
+          [e for e in d["log"] if e["type"] == "goal"][0]["xp"] == 300)
+    row().locator(".tick").click(); page.wait_for_timeout(60)   # reopen
+    # move the deadline into the past
+    row().locator("button[data-act=edit-goal]").click(); page.wait_for_timeout(50)
+    check("deadline prefilled in the edit form", page.input_value("#f-g-deadline") == "2026-11-30")
+    page.fill("#f-g-deadline", "2026-09-01")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    check("an overdue objective says so and shows the halved amount",
+          "was due 1 Sept 2026, half XP now" in row().inner_text()
+          and row().locator(".xp").inner_text().strip() == "150", row().inner_text())
+    row().locator(".tick").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("completed after the deadline pays half",
+          [e for e in d["log"] if e["type"] == "goal"][0]["xp"] == 150)
+    check("done row explains the halving", "Half XP, after the deadline." in row().inner_text(), row().inner_text())
+    # editing the done objective re-judges its entry against the deadline
+    row().locator("button[data-act=edit-goal]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-xp", "400")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("raising the XP of a late completion keeps it halved",
+          [e for e in d["log"] if e["type"] == "goal"][0]["xp"] == 200)
+    row().locator("button[data-act=edit-goal]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-deadline", "")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("removing the deadline restores the full amount",
+          [e for e in d["log"] if e["type"] == "goal"][0]["xp"] == 400
+          and sum(e["xp"] for e in d["log"]) == 400)
+    # a nonsense deadline in a backup is dropped
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.goals[0].deadline = 'someday';
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("junk deadline repaired to none", d["goals"][0]["deadline"] is None)
+    check("no JS errors in the deadline flow", not gerr, gerr)
+    ctx.close()
+
+    # ---------- 3h. progress tab ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    perr = []
+    page.on("pageerror", lambda e: perr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 12, 10, 0, 0, tzinfo=ROME))  # Saturday
+    page.goto(URL); page.wait_for_selector(".hero")
+    # deterministic history: target 10000 from 13 Aug to 31 Dec = 140 days, ~71.4/day
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.target = 10000; s.start = '2026-08-13'; s.deadline = '2026-12-31';
+        s.habits.find(h => h.id === 'h1').mode = 'weekly';
+        s.habits.find(h => h.id === 'h1').perWeek = 3;
+        s.habits.find(h => h.id === 'h1').bonus = 60;
+        let n = 0; const put = (type, refId, name, xp, date) =>
+          s.log.push({id: 'p' + (n++), type, refId, name, xp, date, at: n});
+        // this week (Mon 7 - Sat 12): 470 XP, pace needs round(71.43*6)=429
+        for (const d of ['2026-09-07', '2026-09-09', '2026-09-11']) put('habit', 'h1', 'Gym session', 50, d);
+        put('bonus', 'h1', 'Gym session — 3× in a week', 60, '2026-09-11');
+        for (const d of ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11']) put('habit', 'h3', 'Study 2 hours', 30, d);
+        for (const d of ['2026-09-08', '2026-09-10', '2026-09-12']) put('habit', 'h2', '8k steps', 20, d);
+        for (const d of ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-11', '2026-09-12']) put('habit', 'h4', 'Read 20 minutes', 10, d);
+        put('habit', 'h3', 'Study 2 hours', 500, '2026-09-02');   // last week: exactly 500
+        s.tasks.push({id: 'tx', name: 'Email the tutor', xp: 15, cat: s.cats[1].id, date: '2026-09-10', done: false});
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    page.locator("button[data-act=tab][data-id=progress]").click(); page.wait_for_timeout(80)
+    check("week is the default period", page.locator("button[data-act=prog][data-id=week]").get_attribute("aria-pressed") == "true")
+    check("weekly XP against the pace the target asks for",
+          "470" in page.inner_text(".prognum") and "asks for about 429" in page.inner_text(".proglab"), page.inner_text(".proglab"))
+    check("last week comparison shown", "Last week: 500 XP" in page.inner_text(".proglab"))
+    check("evaluative verdict: ahead of pace", "41 XP ahead" in page.inner_text(".progsay"), page.inner_text(".progsay"))
+    svg = page.locator(".wchart svg")
+    check("seven bars with the pace line drawn across", svg.locator("rect").count() == 7 and "pace 71/day" in svg.inner_text())
+    wins = page.locator(".pitem.win").all_inner_texts()
+    check("wins: weekly bonus and best day celebrated",
+          any("Weekly target hit" in w for w in wins) and any("Best day" in w for w in wins), wins)
+    watch = page.locator(".pitem.watch").all_inner_texts()
+    check("watch: missed daily habits called out with counts",
+          any("8k steps" in w and "missed 3 days" in w for w in watch)
+          and any("Read 20 minutes" in w and "missed 1 day" in w for w in watch), watch)
+    check("watch: unfinished daily goal pointed back to Tasks",
+          any("unfinished" in w and "Email the tutor" in w for w in watch), watch)
+    page.screenshot(path="shots/progress_week.png", full_page=True)
+    page.locator("button[data-act=prog][data-id=day]").click(); page.wait_for_timeout(60)
+    check("day view compares against yesterday", "XP today" in page.inner_text(".prognum") and "Yesterday:" in page.inner_text(".proglab"))
+    check("day view lists what is still open", any("Still open today" in w for w in page.locator(".pitem.watch").all_inner_texts()))
+    page.locator("button[data-act=prog][data-id=month]").click(); page.wait_for_timeout(60)
+    check("month view draws a bar per day of September", page.locator(".wchart rect").count() == 30)
+    check("no JS errors in the progress tab", not perr, perr)
+    ctx.close()
+
+    # ---------- 3i. hide done ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    page.clock.install(time=datetime.datetime(2026, 9, 10, 9, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector(".hero")
+    page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(50)
+    page.locator("button[data-act=go-tasks]").click(); page.wait_for_timeout(50)
+    page.fill("#f-t-name", "Water the plants"); page.fill("#f-t-xp", "5")
+    page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(50)
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
+    page.locator(".row.task", has_text="Water the plants").click(); page.wait_for_timeout(50)
+    before = page.locator(".row[data-act=log]").count()
+    page.locator(".goals-head button[data-act=toggle-done]").click(); page.wait_for_timeout(60)
+    check("hide done tucks away the ticked habit and the done goal",
+          page.locator(".row[data-act=log]").count() == before - 1
+          and page.locator(".row.task").count() == 0
+          and "done hidden" in page.locator(".mini.dim").inner_text())
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("the preference is saved", d["hideDone"] is True)
+    # sections tab tucks done objectives away the same way
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    page.locator(".secbox .row", has_text="Bench press").locator(".tick").click(); page.wait_for_timeout(60)
+    check("done objective hidden in its box, with a count",
+          page.locator(".secbox .row.done").count() == 0
+          and "1 done hidden" in page.locator(".secbox", has_text="Fitness").inner_text())
+    page.locator(".secbox .mini.dim").click(); page.wait_for_timeout(60)
+    check("the hidden hint brings them back everywhere",
+          page.locator(".secbox .row.done").count() == 1
+          and json.loads(page.evaluate("localStorage.getItem('level.v2')"))["hideDone"] is False)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------

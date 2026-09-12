@@ -80,6 +80,9 @@ Five tabs along the bottom, each with one job:
   and its objectives together inside it. Add and edit everything here; the
   form opens inside the box it belongs to.
 - **Calendar** — the month at a glance. Tap a day to see or fix it.
+- **Progress** — the report card. Day, Week or Month: XP earned against the
+  pace your target asks for, a verdict in plain words, a bar per day, what
+  went well, and what slipped — named kindly, with counts.
 - **Settings** — target, weight goal, appearance, reminders, your data.
 
 - The app follows the phone's light or dark setting on its own. To pin it one
@@ -105,7 +108,12 @@ Five tabs along the bottom, each with one job:
   also when it starts counting towards the number on the app icon. Come Monday
   the count starts again at zero and last week's XP stays where it is.
   Raising the count later never takes back a bonus an earlier week earned.
-- Objectives are one-off. Tick when done; tick again to reopen.
+- Objectives are one-off. Tick when done; tick again to reopen. Each can
+  carry an optional deadline: finish by it for the full XP, after it for
+  half. The row says which applies before you tick.
+- Anything ticked off can be tucked away: "Hide done" on Home or Tasks (and
+  the "N done hidden" hints everywhere) fold completed habits, goals and
+  objectives out of sight until you ask for them back.
 - Daily goals are one-off things for a specific day (homework, an errand),
   each with its own XP. Add them in the Tasks tab (Home's "+ Add goal" takes
   you there), or plan ahead with the date field or by tapping a future day in

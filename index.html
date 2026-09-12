@@ -288,6 +288,7 @@
   /* ---------- daily goals ---------- */
   .goals-head{display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px}
   .goals-head h2{margin:0}
+  .goals-head>div{display:flex;gap:6px}
   .goals-head button{font-size:13.5px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg)}
   .task .tick{border-radius:50%}
   .task .cross{color:var(--muted);font-size:20px;line-height:1;padding:8px 12px 8px 4px}
@@ -321,6 +322,20 @@
   .secbox .form{border:0;padding:12px 0 2px;margin-bottom:0;border-top:1px solid var(--line);border-radius:0}
   .mini{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg);margin-top:8px}
   .mini:active{opacity:.8}
+  .mini.dim{background:transparent;color:var(--muted);font-weight:500;padding-left:2px}
+
+  /* ---------- progress ---------- */
+  .prognum{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1}
+  .prognum span{font-size:16px;font-weight:600;color:var(--muted);letter-spacing:0}
+  .proglab{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .progsay{font-size:14px;line-height:1.55;color:var(--ink-soft);margin-top:10px}
+  .progsay b{font-weight:700}
+  .pitem{display:flex;align-items:flex-start;gap:9px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.45}
+  .pitem:last-child{border-bottom:0}
+  .pitem .pdot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--line-2)}
+  .pitem.win .pdot{background:var(--green)}
+  .pitem.watch .pdot{background:var(--gold)}
+  .pitem .num{font-weight:700}
 
   /* ---------- weight ---------- */
   .wcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:8px}
@@ -372,6 +387,9 @@
   <button data-act="tab" data-id="calendar">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
     Calendar</button>
+  <button data-act="tab" data-id="progress">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5.5-5.5 3.5 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>
+    Progress</button>
   <button data-act="tab" data-id="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9.5" cy="7" r="2.2" style="fill:var(--bg)"/><circle cx="15" cy="12" r="2.2" style="fill:var(--bg)"/><circle cx="8" cy="17" r="2.2" style="fill:var(--bg)"/></svg>
     Settings</button>
@@ -480,9 +498,9 @@ function seed(){
       {id:'h5',name:'Sleep before midnight',xp:15,mode:'daily',perWeek:3,bonus:0,cat:c3}
     ],
     goals:[
-      {id:'g1',name:'Bench press bodyweight',xp:300,cat:c1,done:false,doneDate:null},
-      {id:'g2',name:'Run 10k under 50 min',xp:250,cat:c1,done:false,doneDate:null},
-      {id:'g3',name:'Finish coursework draft',xp:200,cat:c2,done:false,doneDate:null}
+      {id:'g1',name:'Bench press bodyweight',xp:300,cat:c1,deadline:null,done:false,doneDate:null},
+      {id:'g2',name:'Run 10k under 50 min',xp:250,cat:c1,deadline:null,done:false,doneDate:null},
+      {id:'g3',name:'Finish coursework draft',xp:200,cat:c2,deadline:null,done:false,doneDate:null}
     ],
     tasks:[],
     log:[],
@@ -491,6 +509,7 @@ function seed(){
     start:todayISO(),
     reminders:{times:['15:00','18:00','21:00'],badge:true},
     theme:'auto',            // 'auto' follows the phone, or force 'light'/'dark'
+    hideDone:false,          // tuck away ticked habits, done goals and objectives
     lastBackup:null,         // YYYY-MM-DD of the last export, for the Home nudge
     // weight rides outside the XP system entirely: no log entries, no badge.
     // One entry per day; the chart plots each Monday-Sunday week's average.
@@ -522,7 +541,9 @@ function normalise(d){
     cat:fixCat(h.cat)})):[];
   out.goals=Array.isArray(d.goals)?d.goals.filter(g=>g&&typeof g==='object').map(g=>({
     id:String(g.id||uid()),name:String(g.name||'Untitled').slice(0,60),
-    xp:clampInt(g.xp,1,100000)||100,cat:fixCat(g.cat),done:!!g.done,
+    xp:clampInt(g.xp,1,100000)||100,cat:fixCat(g.cat),
+    deadline:isValidISO(g.deadline)?g.deadline:null,   // optional; late completion pays half
+    done:!!g.done,
     doneDate:isValidISO(g.doneDate)?g.doneDate:null})):[];
 
   out.tasks=Array.isArray(d.tasks)?d.tasks.filter(t=>t&&typeof t==='object'&&isValidISO(t.date)).map(t=>({
@@ -582,6 +603,7 @@ function normalise(d){
   };
 
   out.theme=(d.theme==='light'||d.theme==='dark')?d.theme:'auto';
+  out.hideDone=!!d.hideDone;
   out.lastBackup=isValidISO(d.lastBackup)?d.lastBackup:null;
   out.lastTaskCat=fixCat(d.lastTaskCat);
   return out;
@@ -619,6 +641,7 @@ let cal={y:new Date().getFullYear(),m:new Date().getMonth(),sel:todayISO()};
 let editing=null;          // {type:'cat'|'habit'|'goal', id} - an existing item's form is open
 let adding=null;           // {type:'cat'|'habit'|'goal', cat?} - a new-item form is open
 let pickedColor=PALETTE[0];
+let prog='week';           // progress tab period: 'day' | 'week' | 'month'
 let lastLevel=levelInfo(totalXP()).level;
 let charAnim='';
 
@@ -797,6 +820,9 @@ function logHabit(id,iso){
   if(bonus==='awarded') toast(h.perWeek+'× done — bonus +'+fmt(h.bonus)+' XP',true);
   else toast('+'+h.xp+' XP');
 }
+// Half XP once an objective's deadline has passed: the goal was to do it by
+// then. ISO strings compare correctly, so plain > is a date comparison.
+const goalAward=(g,iso)=>g.deadline&&iso>g.deadline?Math.round(g.xp/2):g.xp;
 function toggleGoal(id){
   const g=state.goals.find(x=>x.id===id); if(!g) return;
   if(g.done){
@@ -805,10 +831,11 @@ function toggleGoal(id){
     save();afterXPChange();render();toast('Reopened');
   }else{
     const iso=todayISO();
-    state.log.push({id:uid(),type:'goal',refId:id,name:g.name,xp:g.xp,date:iso,at:Date.now()});
+    const amt=goalAward(g,iso);
+    state.log.push({id:uid(),type:'goal',refId:id,name:g.name,xp:amt,date:iso,at:Date.now()});
     g.done=true;g.doneDate=iso;
     save();afterXPChange();render();
-    if(charAnim!=='pop') toast('+'+g.xp+' XP');
+    if(charAnim!=='pop') toast(amt<g.xp?'+'+fmt(amt)+' XP — after the deadline':'+'+fmt(amt)+' XP');
   }
 }
 function removeEntry(entryId){
@@ -1010,26 +1037,32 @@ function saveGoal(){
   const name=(document.getElementById('f-g-name').value||'').trim().slice(0,60);
   const xp=intIn(document.getElementById('f-g-xp').value,1,100000);
   const cat=document.getElementById('f-g-cat').value;
+  const dRaw=(document.getElementById('f-g-deadline')||{}).value||'';
   if(!name) return toast('Give it a name');
   if(xp===null) return toast('XP must be a whole number between 1 and 100,000');
+  if(dRaw&&!isValidISO(dRaw)) return toast('Pick a valid deadline, or leave it empty');
+  const deadline=dRaw||null;
   if(!state.cats.some(c=>c.id===cat)) return toast('Pick a section');
   if(editing&&editing.type==='goal'){
     const g=state.goals.find(x=>x.id===editing.id);
     if(g){
-      Object.assign(g,{name,xp,cat});
-      // a completed objective's XP entry follows the edit so the total stays consistent
+      Object.assign(g,{name,xp,cat,deadline});
+      // a completed objective's entry follows the edit so the total stays
+      // consistent - re-judged against the (possibly new) deadline using the
+      // day it was actually completed
       const e=state.log.find(x=>x.type==='goal'&&x.refId===g.id);
-      if(e){e.name=name;e.xp=xp;}
+      if(e){e.name=name;e.xp=goalAward(g,e.date);}
     }
     editing=null;adding=null;toast('Objective updated');
   }else{
-    state.goals.push({id:uid(),name,xp,cat,done:false,doneDate:null});adding=null;toast('Objective added');
+    state.goals.push({id:uid(),name,xp,cat,deadline,done:false,doneDate:null});adding=null;toast('Objective added');
   }
   save();afterXPChange();render();
 }
 function deleteGoal(id){
   const g=state.goals.find(x=>x.id===id); if(!g) return;
-  if(!confirm('Delete "'+g.name+'"?'+(g.done?' Its '+g.xp+' XP will be removed from your total.':''))) return;
+  const paid=g.done?(state.log.find(x=>x.type==='goal'&&x.refId===g.id)||{xp:g.xp}).xp:0;
+  if(!confirm('Delete "'+g.name+'"?'+(g.done?' Its '+paid+' XP will be removed from your total.':''))) return;
   state.goals=state.goals.filter(x=>x.id!==id);
   state.log=state.log.filter(e=>!(e.type==='goal'&&e.refId===id));
   if(editing&&editing.type==='goal'&&editing.id===id) editing=null;
@@ -1209,12 +1242,26 @@ function habitRow(h,iso){
 function goalRow(g,opts){
   const c=catOf(g.cat);opts=opts||{};
   const id=esc(g.id);
+  const t=todayISO();
+  // what the row pays: for a done goal, what its entry actually paid
+  const e=g.done?state.log.find(x=>x.type==='goal'&&x.refId===g.id):null;
+  const shown=e?e.xp:goalAward(g,t);
+  const lateNow=!g.done&&g.deadline&&t>g.deadline;
+  const wasLate=e&&e.xp<g.xp;
+  let sub;
+  if(g.done) sub='Completed '+fmtShort(g.doneDate||'')+'. Tap to reopen.'+(wasLate?' <span class="due">Half XP, after the deadline.</span>':'');
+  else{
+    const base=opts.manage?fmt(g.xp)+' XP when done':'Objective';
+    sub=base+(g.deadline?(lateNow
+      ?' &middot; <span class="due">was due '+esc(fmtShort(g.deadline))+', half XP now</span>'
+      :' &middot; by '+esc(fmtShort(g.deadline))):'');
+  }
   return `<div class="row ${g.done?'done':''} ${opts.manage?'':'tap'}" ${opts.manage?'':'data-act="goal" data-id="'+id+'" role="button" tabindex="0" aria-label="'+esc((g.done?'Reopen ':'Complete ')+g.name)+'"'}>
     <div class="edge" style="background:${c.color}"></div>
     <div class="tick" ${opts.manage?'data-act="goal" data-id="'+id+'"':''} style="border-radius:50%;${g.done?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
     <div class="body"><div class="name">${esc(g.name)}</div>
-      <div class="sub">${g.done?'Completed '+fmtShort(g.doneDate||'')+'. Tap to reopen.':opts.manage?fmt(g.xp)+' XP when done':'Objective'}</div></div>
-    <div class="xp num" style="color:${g.done?'':c.color}">${fmt(g.xp)}</div>
+      <div class="sub">${sub}</div></div>
+    <div class="xp num" style="color:${g.done?'':c.color}">${fmt(shown)}</div>
     ${opts.manage?`<div class="acts"><button data-act="edit-goal" data-id="${id}">Edit</button><button class="danger" data-act="del-goal" data-id="${id}">Delete</button></div>`:''}
   </div>`;
 }
@@ -1356,11 +1403,15 @@ function viewHome(){
   const t=todayISO();
   const todayTotal=xpOn(t);
   const pend=pendingToday();
-  const todays=tasksOn(t).sort((a,b)=>a.done-b.done);
+  const allToday=tasksOn(t).sort((a,b)=>a.done-b.done);
+  const doneCount=allToday.filter(x=>x.done).length;
+  const todays=state.hideDone?allToday.filter(x=>!x.done):allToday;
   const overdue=overdueTasks();
-  const goalsBlock=`<div class="goals-head"><h2>Today's goals${todays.length?`<span class="count num">${todays.filter(x=>x.done).length}/${todays.length} done</span>`:''}</h2>
-      <button data-act="go-tasks">+ Add goal</button></div>`+
-    (todays.length?todays.map(x=>taskRow(x)).join(''):`<div class="empty">No goals for today. Add one-off things like homework or errands from the Tasks tab.</div>`)+
+  const hiddenHint=n=>n?`<button class="mini dim" data-act="toggle-done">${n} done hidden &middot; show</button>`:'';
+  const goalsBlock=`<div class="goals-head"><h2>Today's goals${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>
+      <div>${doneCount?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button> `:''}<button data-act="go-tasks">+ Add goal</button></div></div>`+
+    (todays.length?todays.map(x=>taskRow(x)).join(''):allToday.length?'':`<div class="empty">No goals for today. Add one-off things like homework or errands from the Tasks tab.</div>`)+
+    (state.hideDone?hiddenHint(doneCount):'')+
     (overdue.length?`<h3>Unfinished tasks</h3>`+overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'');
   const sections=state.cats.map(c=>{
     const hs=state.habits.filter(h=>h.cat===c.id);
@@ -1371,8 +1422,15 @@ function viewHome(){
       (e.type==='goal'&&state.goals.some(g=>g.id===e.refId&&g.cat===c.id))||
       (e.type==='task'&&state.tasks.some(x=>x.id===e.refId&&x.cat===c.id))
     )).reduce((s,e)=>s+e.xp,0);
+    // "done" worth tucking away: a daily habit ticked today, a weekly habit
+    // whose count is met. Repeatable habits have no done state.
+    const shown=state.hideDone?hs.filter(h=>!(
+      (h.mode==='daily'&&loggedOn(h.id,t).length)||
+      (h.mode==='weekly'&&weeklyLeft(h,t)===0)
+    )):hs;
     return `<h2><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span class="count num">${fmt(catToday)} XP today</span></h2>`+
-      hs.map(h=>habitRow(h,t)).join('');
+      (shown.length?shown.map(h=>habitRow(h,t)).join('')
+        :`<div class="empty" style="padding:12px 16px">All done here for today.</div>`);
   }).join('');
   return heroHTML()+
     `<div class="pendline"><span>Today</span>
@@ -1389,7 +1447,9 @@ function viewHome(){
    what is still owed from earlier days, and everything planned ahead. */
 function viewTasks(){
   const t=todayISO();
-  const todays=tasksOn(t).sort((a,b)=>a.done-b.done);
+  const allToday=tasksOn(t).sort((a,b)=>a.done-b.done);
+  const doneCount=allToday.filter(x=>x.done).length;
+  const todays=state.hideDone?allToday.filter(x=>!x.done):allToday;
   const overdue=overdueTasks();
   const planned=state.tasks.filter(x=>dayDiff(t,x.date)>0).sort((a,b)=>a.date<b.date?-1:1);
   let plannedBlock='';
@@ -1401,8 +1461,9 @@ function viewTasks(){
   }
   return `<div class="goals-head" style="margin-top:4px"><h2>New goal</h2></div>`+
     quickAddHTML(t,true)+
-    `<div class="goals-head"><h2>Today${todays.length?`<span class="count num">${todays.filter(x=>x.done).length}/${todays.length} done</span>`:''}</h2></div>`+
-    (todays.length?todays.map(x=>taskRow(x)).join(''):`<div class="empty">Nothing set for today yet.</div>`)+
+    `<div class="goals-head"><h2>Today${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>${doneCount?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button>`:''}</div>`+
+    (todays.length?todays.map(x=>taskRow(x)).join(''):allToday.length?'':`<div class="empty">Nothing set for today yet.</div>`)+
+    (state.hideDone&&doneCount?`<button class="mini dim" data-act="toggle-done">${doneCount} done hidden &middot; show</button>`:'')+
     (overdue.length?`<h2>Unfinished tasks<span class="count num">${overdue.length}</span></h2>`+
       overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'')+
     plannedBlock;
@@ -1514,6 +1575,8 @@ function goalFormHTML(ed,presetCat){
       <div class="field"><label for="f-g-xp">XP when done</label><input id="f-g-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:250}"></div>
       <div class="field"><label for="f-g-cat">Section</label><select id="f-g-cat">${catOptions(ed?ed.cat:presetCat)}</select></div>
     </div>
+    <div class="field"><label for="f-g-deadline">Deadline (optional)</label><input id="f-g-deadline" type="date" value="${ed&&ed.deadline?ed.deadline:''}"></div>
+    <div style="font-size:12.5px;color:var(--muted);margin:-4px 0 10px">Finish by the deadline for the full XP; after it, half. Leave empty for no deadline.</div>
     <div class="inline"><button class="btn primary" data-act="save-goal">${ed?'Save changes':'Add objective'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
   </div>`;
 }
@@ -1541,7 +1604,8 @@ function viewSections(){
       ${habitRows||`<div class="empty">No habits yet.</div>`}
       ${edHabit?habitFormHTML(edHabit,c.id):addHabit?habitFormHTML(null,c.id):`<button class="mini" data-act="add-habit" data-id="${esc(c.id)}">+ Add habit</button>`}
       <h3>Objectives${done.length?`<span class="count num" style="float:right;font-weight:500">${done.length} done</span>`:''}</h3>
-      ${open.map(g=>goalRow(g,{manage:true})).join('')+done.map(g=>goalRow(g,{manage:true})).join('')||`<div class="empty">No objectives yet.</div>`}
+      ${open.map(g=>goalRow(g,{manage:true})).join('')+(state.hideDone?'':done.map(g=>goalRow(g,{manage:true})).join(''))||(state.hideDone&&done.length?'':`<div class="empty">No objectives yet.</div>`)}
+      ${state.hideDone&&done.length?`<button class="mini dim" data-act="toggle-done">${done.length} done hidden &middot; show</button>`:''}
       ${edGoal?goalFormHTML(edGoal,c.id):addGoal?goalFormHTML(null,c.id):`<button class="mini" data-act="add-objective" data-id="${esc(c.id)}">+ Add objective</button>`}
     </div>`;
   }).join('');
@@ -1549,6 +1613,136 @@ function viewSections(){
     ?catFormHTML(null)
     :`<button class="btn ghost" data-act="add-cat">+ New section</button>`;
   return boxes+newCat;
+}
+
+/* =================================================================
+   PROGRESS
+   A review of the day, week or month: XP earned against the pace the
+   target asks for, what went well, and what slipped - said kindly,
+   but said.
+================================================================== */
+const paceNeedPerDay=()=>{const span=dayDiff(state.start,state.deadline);return span>0?state.target/span:0;};
+const xpBetween=(a,b)=>state.log.filter(e=>e.date>=a&&e.date<=b).reduce((s,e)=>s+e.xp,0);
+const monthStart=iso=>iso.slice(0,8)+'01';
+const monthEnd=iso=>{const d=parseLocal(iso);return localISO(new Date(d.getFullYear(),d.getMonth()+1,0));};
+
+// XP per day as bars, the day's pace need as a dashed line across them
+function progressBarsSVG(from,end,perDay){
+  const t=todayISO();
+  const days=[]; for(let d=from;d<=end;d=addDays(d,1)) days.push(d);
+  const W=340,H=112,B=18,T=8;
+  const vals=days.map(d=>d<=t?xpOn(d):null);
+  const top=Math.max(perDay*1.25,...vals.map(v=>v||0),10);
+  const y=v=>T+(1-v/top)*(H-T-B);
+  const bw=Math.max(3,(W-8)/days.length-2.5);
+  let s='';
+  days.forEach((d,i)=>{
+    const x=(4+i*((W-8)/days.length)).toFixed(1);
+    if(vals[i]===null){ s+=`<rect x="${x}" y="${H-B-1.5}" width="${bw.toFixed(1)}" height="1.5" rx="0.75" style="fill:var(--line-2)"/>`; return; }
+    const h=Math.max(vals[i]>0?3:1.5,(H-T-B)*vals[i]/top);
+    s+=`<rect x="${x}" y="${(H-B-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" style="fill:${d===t?'var(--gold)':'var(--accent)'}"/>`;
+  });
+  if(perDay>0){
+    s+=`<line x1="2" y1="${y(perDay).toFixed(1)}" x2="${W-2}" y2="${y(perDay).toFixed(1)}" style="stroke:var(--green)" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"/>`+
+       `<text x="${W-4}" y="${(y(perDay)-4).toFixed(1)}" text-anchor="end" font-size="9.5" font-weight="600" style="fill:var(--green)">pace ${Math.round(perDay)}/day</text>`;
+  }
+  const lab=(i,anchor)=>{const d=parseLocal(days[i]);return `<text x="${(4+i*((W-8)/days.length)+bw/2).toFixed(1)}" y="${H-5}" text-anchor="${anchor}" font-size="9.5" style="fill:var(--muted)">${days.length===7?['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]:d.getDate()}</text>`;};
+  if(days.length===7) for(let i=0;i<7;i++) s+=lab(i,'middle');
+  else{ s+=lab(0,'start'); s+=lab(Math.floor(days.length/2),'middle'); s+=lab(days.length-1,'end'); }
+  return `<div class="wchart"><svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="XP per day">${s}</svg></div>`;
+}
+
+function viewProgress(){
+  const t=todayISO();
+  const perDay=paceNeedPerDay();
+  const kind=prog;
+  const from=kind==='day'?t:kind==='week'?weekStart(t):monthStart(t);
+  const end=kind==='day'?t:kind==='week'?addDays(weekStart(t),6):monthEnd(t);
+  const label=kind==='day'?'today':kind==='week'?'this week':'this month';
+  const daysIn=dayDiff(from,t)+1;                 // elapsed days incl. today
+  const earned=xpBetween(from,t);
+  const need=Math.round(perDay*daysIn);
+
+  // ---- headline + verdict ----
+  const xp=totalXP();
+  const daysLeftAll=Math.max(0,dayDiff(t,state.deadline));
+  const perDayCatch=daysLeftAll>0?Math.ceil(Math.max(0,state.target-xp)/daysLeftAll):0;
+  let say;
+  if(perDay<=0) say='Set the target and deadline under Settings and this page will measure you against them.';
+  else if(xp>=state.target) say='<b>Target reached.</b> Everything from here is a victory lap - set a new one under Settings when ready.';
+  else{
+    const diff=earned-need;
+    if(diff>=0) say=`That is <b>${fmt(diff)} XP ahead</b> of the pace your target asks for. Keep this up and the ${fmt(state.target)} lands early.`;
+    else say=`That is <b>${fmt(-diff)} XP short</b> of pace ${label} - no drama. From today, about <b>${fmt(perDayCatch)} XP a day</b> still lands the target by ${esc(fmtShort(state.deadline))}.`;
+  }
+
+  // ---- previous period comparison ----
+  let prevLine='';
+  if(kind==='day'){const v=xpOn(addDays(t,-1)); prevLine=`Yesterday: ${fmt(v)} XP.`;}
+  else if(kind==='week'){const pf=addDays(from,-7); const v=xpBetween(pf,addDays(from,-1)); prevLine=`Last week: ${fmt(v)} XP${v?earned>=v?' - matched or beaten already.':'':''}`;}
+  else{const pm=monthStart(addDays(from,-1)); const v=xpBetween(pm,addDays(from,-1)); prevLine=`Last month: ${fmt(v)} XP.`;}
+
+  // ---- wins ----
+  const wins=[];
+  const inRange=e=>e.date>=from&&e.date<=t;
+  const doneGoals=state.log.filter(e=>e.type==='goal'&&inRange(e));
+  doneGoals.forEach(e=>wins.push(`Objective done: <b>${esc(e.name)}</b> (+${fmt(e.xp)})`));
+  const bonuses=state.log.filter(e=>e.type==='bonus'&&inRange(e));
+  bonuses.forEach(e=>wins.push(`Weekly target hit: <b>${esc(e.name)}</b> (+${fmt(e.xp)})`));
+  if(kind!=='day'){
+    let best=0,bestD=null;
+    for(let d=from;d<=t;d=addDays(d,1)){const v=xpOn(d);if(v>best){best=v;bestD=d;}}
+    if(bestD&&best>0) wins.push(`Best day: <b>${esc(fmtShort(bestD))}</b>, ${fmt(best)} XP`);
+    const s=streak(); if(s>=3) wins.push(`<b>${s}-day</b> logging streak`);
+    const w=weightWeeks(); if(w.length>=2&&state.weight.goal!==null){
+      const a=w[w.length-1],b=w[w.length-2];
+      if(Math.abs(a.avg-state.weight.goal)<Math.abs(b.avg-state.weight.goal))
+        wins.push(`Weight moving the right way: <b>${fmtKg(a.avg)} kg</b> this week`);
+    }
+  }
+
+  // ---- worth watching ----
+  const watch=[];
+  const missEnd=addDays(t,-1);                    // today is not "missed" yet
+  if(kind==='day'){
+    const p=pendingToday();
+    [...p.tasks,...p.habits].slice(0,5).forEach(x=>watch.push(`Still open today: <b>${esc(x.name)}</b>`));
+    p.overdue.slice(0,3).forEach(x=>watch.push(`Carried over: <b>${esc(x.name)}</b>, set for ${esc(fmtShort(x.date))}`));
+  }else{
+    state.habits.filter(h=>h.mode==='daily').forEach(h=>{
+      let missed=0;
+      for(let d=from;d<=missEnd;d=addDays(d,1)) if(!loggedOn(h.id,d).length) missed++;
+      if(missed>0) watch.push(`<b>${esc(h.name)}</b>: missed ${missed} day${missed===1?'':'s'} ${label} - one tap tomorrow restarts it`);
+    });
+    state.habits.filter(h=>h.mode==='weekly').forEach(h=>{
+      if(kind==='week'){
+        const left=weeklyLeft(h,t);
+        if(left>0) watch.push(`<b>${esc(h.name)}</b>: ${weekCount(h.id,t)} of ${h.perWeek} so far - ${left} more by Sunday keeps the bonus`);
+      }else{
+        let weeks=0,hit=0;
+        for(let w=weekStart(from)<from?addDays(weekStart(from),7):weekStart(from); addDays(w,6)<=missEnd; w=addDays(w,7)){
+          weeks++; if(weekCount(h.id,w)>=h.perWeek) hit++;
+        }
+        if(weeks>0&&hit<weeks) watch.push(`<b>${esc(h.name)}</b>: hit ${hit} of ${weeks} full week${weeks===1?'':'s'} ${label}`);
+      }
+    });
+    const missedTasks=state.tasks.filter(x=>!x.done&&x.date>=from&&x.date<=missEnd);
+    if(missedTasks.length) watch.push(`<b>${missedTasks.length} daily goal${missedTasks.length===1?'':'s'}</b> still unfinished: ${missedTasks.slice(0,3).map(x=>esc(x.name)).join(', ')}${missedTasks.length>3?'&hellip;':''} - waiting under Tasks`);
+  }
+
+  const item=(cls,html)=>`<div class="pitem ${cls}"><span class="pdot"></span><div>${html}</div></div>`;
+  return `<div class="seg">${[['day','Day'],['week','Week'],['month','Month']].map(p=>
+      `<button data-act="prog" data-id="${p[0]}" aria-pressed="${prog===p[0]}">${p[1]}</button>`).join('')}</div>
+    <div class="wcard">
+      <div class="prognum num">${fmt(earned)}<span> XP ${label}</span></div>
+      <div class="proglab num">${perDay>0?`Pace so far asks for about ${fmt(need)}. ${prevLine}`:prevLine}</div>
+      <div class="progsay">${say}</div>
+      ${kind==='day'?'':progressBarsSVG(from,end,perDay)}
+    </div>
+    <h2>Went well</h2>
+    ${wins.length?wins.map(w=>item('win',w)).join(''):item('','Nothing logged yet '+label+'. The first tap is the hardest one.')}
+    <h2>Worth watching</h2>
+    ${watch.length?watch.map(w=>item('watch',w)).join(''):item('win','Nothing slipped '+label+'. Clean sheet.')}`;
 }
 
 function viewSettings(){
@@ -1606,7 +1800,7 @@ function viewSettings(){
 ================================================================== */
 function render(){
   document.getElementById('today').textContent=fmtLong(todayISO());
-  const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,settings:viewSettings}[tab]||viewHome;
+  const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,progress:viewProgress,settings:viewSettings}[tab]||viewHome;
   document.getElementById('view').innerHTML=v();
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===tab?'true':'false'));
   updateBadge();
@@ -1614,6 +1808,8 @@ function render(){
 
 const ACTIONS={
   tab:id=>{tab=id;editing=null;adding=null;render();window.scrollTo(0,0);},
+  prog:id=>{prog=id==='day'||id==='month'?id:'week';render();},
+  'toggle-done':()=>{state.hideDone=!state.hideDone;save();render();},
   'go-tasks':()=>{tab='tasks';editing=null;adding=null;render();window.scrollTo(0,0);const el=document.getElementById('f-t-name');if(el)el.focus();},
   log:id=>logHabit(id),
   goal:id=>toggleGoal(id),
