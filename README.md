@@ -32,8 +32,8 @@ Either way you get HTTPS, which the offline cache requires.
 
 Edit `index.html`, push the change, then close and reopen the app. It fetches
 from the network first, so you get the new version as soon as you have signal.
-If a change refuses to appear, change `CACHE = 'level-v3'` in `sw.js` to
-`level-v4`.
+If a change refuses to appear, bump the version in `sw.js` (change
+`CACHE = 'level-v7'` to `level-v8`, and so on).
 
 ## Your data
 
@@ -68,6 +68,20 @@ do work:
 
 ## How it works
 
+Five tabs along the bottom, each with one job:
+
+- **Home** — the daily loop. Tick habits, tick today's goals, log your weight,
+  see what's still owed. Goals left unfinished from earlier days show here
+  under "Unfinished tasks" with a button to move them to today.
+- **Tasks** — where daily goals are written. Add one for today or pick a date
+  to plan ahead; below the form sit Today, Unfinished tasks, and everything
+  Planned, grouped by day.
+- **Sections** — one box per section (Fitness, School, ...), with its habits
+  and its objectives together inside it. Add and edit everything here; the
+  form opens inside the box it belongs to.
+- **Calendar** — the month at a glance. Tap a day to see or fix it.
+- **Settings** — target, weight goal, appearance, reminders, your data.
+
 - The app follows the phone's light or dark setting on its own. To pin it one
   way regardless, Settings > Appearance has Auto, Light and Dark.
 - **Weight** lives at the bottom of Home and earns no XP on purpose. Weigh in
@@ -93,9 +107,10 @@ do work:
   Raising the count later never takes back a bonus an earlier week earned.
 - Objectives are one-off. Tick when done; tick again to reopen.
 - Daily goals are one-off things for a specific day (homework, an errand),
-  each with its own XP. Add them from Home with "+ Add goal", or plan ahead
-  by tapping a future day in the calendar. Unfinished ones show up the next
-  day under "Unfinished from earlier" with a "Move to today" button.
+  each with its own XP. Add them in the Tasks tab (Home's "+ Add goal" takes
+  you there), or plan ahead with the date field or by tapping a future day in
+  the calendar. Unfinished ones show up the next day under "Unfinished tasks"
+  with a "Move to today" button, on both Home and the Tasks tab.
 - Calendar: tap any past day to see its entries, remove one, or log a habit
   you forgot to log that day.
 - Level curve: reaching level L costs `100(L-1) + 25(L-1)(L-2)` XP.

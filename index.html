@@ -304,6 +304,24 @@
   .remind{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:12px;background:var(--warn-bg);color:var(--warn-ink);font-size:13.5px;line-height:1.45;margin-top:12px}
   .remind b{font-weight:700}
   .remind.backup{border-left:3px solid var(--warn-ink)}
+  /* ---------- section boxes (Sections tab) ---------- */
+  .secbox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:12px 13px 13px;margin-bottom:14px}
+  .sechead{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .sechead b{font-size:15.5px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sechead .dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
+  .sechead .acts{display:flex;gap:2px}
+  .sechead .acts button{font-size:13px;color:var(--muted);padding:7px 8px;border-radius:8px}
+  .sechead .acts button.danger{color:var(--red)}
+  .secbox h3{margin:10px 0 2px}
+  .secbox .row{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;margin-bottom:0;min-height:52px;padding-right:0}
+  .secbox .row:last-of-type{border-bottom:0}
+  .secbox .row .edge{display:none}
+  .secbox .empty{padding:10px 4px;border:0;text-align:left;font-size:13px}
+  .secbox .form{border:0;padding:12px 0 2px;margin-bottom:0;border-top:1px solid var(--line);border-radius:0}
+  .mini{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg);margin-top:8px}
+  .mini:active{opacity:.8}
+
   /* ---------- weight ---------- */
   .wcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:8px}
   .wlog{display:flex;gap:8px}
@@ -345,12 +363,18 @@
   <button data-act="tab" data-id="home">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
     Home</button>
+  <button data-act="tab" data-id="tasks">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10.2l2.3 2.3 5-5"/><path d="M8 16h8"/></svg>
+    Tasks</button>
+  <button data-act="tab" data-id="sections">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>
+    Sections</button>
   <button data-act="tab" data-id="calendar">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
     Calendar</button>
-  <button data-act="tab" data-id="manage">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/></svg>
-    Manage</button>
+  <button data-act="tab" data-id="settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9.5" cy="7" r="2.2" style="fill:var(--bg)"/><circle cx="15" cy="12" r="2.2" style="fill:var(--bg)"/><circle cx="8" cy="17" r="2.2" style="fill:var(--bg)"/></svg>
+    Settings</button>
 </div></nav>
 
 <div class="toast" id="toast"></div>
@@ -590,14 +614,13 @@ save();
 /* =================================================================
    UI STATE (not persisted)
 ================================================================== */
-let tab='home';
+let tab='home';            // 'home' | 'tasks' | 'sections' | 'calendar' | 'settings'
 let cal={y:new Date().getFullYear(),m:new Date().getMonth(),sel:todayISO()};
-let seg='cats';            // manage segment
-let editing=null;          // {type:'cat'|'habit'|'goal', id}
+let editing=null;          // {type:'cat'|'habit'|'goal', id} - an existing item's form is open
+let adding=null;           // {type:'cat'|'habit'|'goal', cat?} - a new-item form is open
 let pickedColor=PALETTE[0];
 let lastLevel=levelInfo(totalXP()).level;
 let charAnim='';
-let showTaskForm=false;
 
 /* =================================================================
    DERIVED
@@ -808,6 +831,9 @@ function undoLast(){
 
 /* ---- daily goals ---- */
 function addTask(iso){
+  // the Tasks tab has a date field; the calendar passes its selected day instead
+  const dEl=document.getElementById('f-t-date');
+  if(dEl&&isValidISO(dEl.value)) iso=dEl.value;
   iso=isValidISO(iso)?iso:todayISO();
   const nameEl=document.getElementById('f-t-name'),xpEl=document.getElementById('f-t-xp'),catEl=document.getElementById('f-t-cat');
   const name=(nameEl&&nameEl.value||'').trim().slice(0,80);
@@ -818,8 +844,8 @@ function addTask(iso){
   if(!state.cats.some(c=>c.id===cat)) return toast('Pick a section');
   state.tasks.push({id:uid(),name,xp,cat,date:iso,done:false});
   state.lastTaskCat=cat;
-  showTaskForm=true;
-  save();render();toast('Goal added');
+  save();render();
+  toast(dayDiff(todayISO(),iso)>0?'Planned for '+fmtShort(iso):'Goal added');
   const again=document.getElementById('f-t-name'); if(again) again.focus();
 }
 function toggleTask(id){
@@ -906,9 +932,9 @@ function saveCat(){
   if(!name) return toast('Give it a name');
   if(editing&&editing.type==='cat'){
     const c=state.cats.find(x=>x.id===editing.id); if(c){c.name=name;c.color=pickedColor;}
-    editing=null;toast('Section updated');
+    editing=null;adding=null;toast('Section updated');
   }else{
-    state.cats.push({id:uid(),name,color:pickedColor});toast('Section added');
+    state.cats.push({id:uid(),name,color:pickedColor});adding=null;toast('Section added');
   }
   pickedColor=PALETTE[0];
   save();render();
@@ -926,6 +952,7 @@ function deleteCat(id){
   if(state.lastTaskCat===id) state.lastTaskCat=fallback.id;
   state.cats=state.cats.filter(x=>x.id!==id);
   if(editing&&editing.type==='cat'&&editing.id===id) editing=null;
+  if(adding&&adding.cat===id) adding=null;
   save();render();toast('Section deleted');
 }
 
@@ -963,9 +990,9 @@ function saveHabit(){
       reconcileWeek(h.id,todayISO());
       // past entries keep their original name/xp on purpose: history stays true
     }
-    editing=null;toast('Habit updated');
+    editing=null;adding=null;toast('Habit updated');
   }else{
-    state.habits.push({id:uid(),name,xp,mode,cat,perWeek,bonus});toast('Habit added');
+    state.habits.push({id:uid(),name,xp,mode,cat,perWeek,bonus});adding=null;toast('Habit added');
   }
   save();afterXPChange();render();
 }
@@ -994,9 +1021,9 @@ function saveGoal(){
       const e=state.log.find(x=>x.type==='goal'&&x.refId===g.id);
       if(e){e.name=name;e.xp=xp;}
     }
-    editing=null;toast('Objective updated');
+    editing=null;adding=null;toast('Objective updated');
   }else{
-    state.goals.push({id:uid(),name,xp,cat,done:false,doneDate:null});toast('Objective added');
+    state.goals.push({id:uid(),name,xp,cat,done:false,doneDate:null});adding=null;toast('Objective added');
   }
   save();afterXPChange();render();
 }
@@ -1186,7 +1213,7 @@ function goalRow(g,opts){
     <div class="edge" style="background:${c.color}"></div>
     <div class="tick" ${opts.manage?'data-act="goal" data-id="'+id+'"':''} style="border-radius:50%;${g.done?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
     <div class="body"><div class="name">${esc(g.name)}</div>
-      <div class="sub">${g.done?'Completed '+fmtShort(g.doneDate||'')+'. Tap to reopen.':'Objective'}${opts.manage?' &middot; '+esc(c.name):''}</div></div>
+      <div class="sub">${g.done?'Completed '+fmtShort(g.doneDate||'')+'. Tap to reopen.':opts.manage?fmt(g.xp)+' XP when done':'Objective'}</div></div>
     <div class="xp num" style="color:${g.done?'':c.color}">${fmt(g.xp)}</div>
     ${opts.manage?`<div class="acts"><button data-act="edit-goal" data-id="${id}">Edit</button><button class="danger" data-act="del-goal" data-id="${id}">Delete</button></div>`:''}
   </div>`;
@@ -1206,11 +1233,12 @@ function taskRow(t,opts){
     <button class="cross" data-act="task-del" data-id="${id}" aria-label="Remove goal">&times;</button>
   </div>`;
 }
-function quickAddHTML(iso){
+function quickAddHTML(iso,withDate){
   const t=todayISO();
-  const label=iso===t?'Add goal':'Add for '+fmtShort(iso);
+  const label=withDate?'Add':iso===t?'Add goal':'Add for '+fmtShort(iso);
   return `<div class="quick" id="quick-add">
     <div class="line"><input class="name" id="f-t-name" placeholder="Finish the marketing homework" maxlength="80" autocomplete="off" aria-label="Goal name"><input class="xp num" id="f-t-xp" type="number" inputmode="numeric" min="1" step="1" value="25" aria-label="XP"></div>
+    ${withDate?`<div class="line"><input type="date" id="f-t-date" value="${t}" aria-label="Day" style="flex:1;min-width:0;padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--input-bg);font-size:16px;min-height:44px"></div>`:''}
     <div class="line"><select id="f-t-cat" aria-label="Section">${catOptions(state.lastTaskCat)}</select><button class="btn primary" data-act="task-add" data-id="${iso}">${label}</button></div>
   </div>`;
 }
@@ -1322,6 +1350,8 @@ function backupNudgeHTML(){
     <button data-act="export" style="display:block;margin-top:6px;font-weight:700;color:inherit;text-decoration:underline">Export a backup</button></div></div>`;
 }
 
+/* Home is the daily loop and nothing else: tick habits, tick today's goals,
+   log the weight. Planning and editing live in the Tasks and Sections tabs. */
 function viewHome(){
   const t=todayISO();
   const todayTotal=xpOn(t);
@@ -1329,24 +1359,20 @@ function viewHome(){
   const todays=tasksOn(t).sort((a,b)=>a.done-b.done);
   const overdue=overdueTasks();
   const goalsBlock=`<div class="goals-head"><h2>Today's goals${todays.length?`<span class="count num">${todays.filter(x=>x.done).length}/${todays.length} done</span>`:''}</h2>
-      <button data-act="task-form">${showTaskForm?'Close':'+ Add goal'}</button></div>`+
-    (showTaskForm?quickAddHTML(t):'')+
-    (todays.length?todays.map(x=>taskRow(x)).join(''):(showTaskForm?'':`<div class="empty">No goals set for today. Add one-off things like homework or errands here, each with its own XP.</div>`))+
-    (overdue.length?`<h3>Unfinished from earlier</h3>`+overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'');
+      <button data-act="go-tasks">+ Add goal</button></div>`+
+    (todays.length?todays.map(x=>taskRow(x)).join(''):`<div class="empty">No goals for today. Add one-off things like homework or errands from the Tasks tab.</div>`)+
+    (overdue.length?`<h3>Unfinished tasks</h3>`+overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'');
   const sections=state.cats.map(c=>{
     const hs=state.habits.filter(h=>h.cat===c.id);
-    const gs=state.goals.filter(g=>g.cat===c.id&&!g.done);
-    const doneGs=state.goals.filter(g=>g.cat===c.id&&g.done).length;
-    if(!hs.length&&!gs.length&&!doneGs) return '';
+    if(!hs.length) return '';
     const catToday=state.log.filter(e=>e.date===t&&(
       (e.type==='habit'&&hs.some(h=>h.id===e.refId))||
+      ((e.type==='bonus')&&hs.some(h=>h.id===e.refId))||
       (e.type==='goal'&&state.goals.some(g=>g.id===e.refId&&g.cat===c.id))||
       (e.type==='task'&&state.tasks.some(x=>x.id===e.refId&&x.cat===c.id))
     )).reduce((s,e)=>s+e.xp,0);
     return `<h2><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span class="count num">${fmt(catToday)} XP today</span></h2>`+
-      (hs.length?hs.map(h=>habitRow(h,t)).join(''):'')+
-      (gs.length?`<h3>Objectives${doneGs?' &middot; '+doneGs+' done':''}</h3>`+gs.map(g=>goalRow(g)).join(''):
-        (doneGs?`<h3>All ${doneGs} objective${doneGs>1?'s':''} done</h3>`:''));
+      hs.map(h=>habitRow(h,t)).join('');
   }).join('');
   return heroHTML()+
     `<div class="pendline"><span>Today</span>
@@ -1354,9 +1380,32 @@ function viewHome(){
     reminderBannerHTML()+
     backupNudgeHTML()+
     goalsBlock+
-    (sections||`<div class="empty" style="margin-top:12px">Nothing to track yet. Add sections, habits and objectives under Manage.</div>`)+
+    (sections||`<div class="empty" style="margin-top:12px">No habits yet. Build your sections and habits in the Sections tab.</div>`)+
     weightSectionHTML()+
     `<div class="inline"><button class="btn ghost" data-act="undo">Undo last entry</button></div>`;
+}
+
+/* The Tasks tab: write tomorrow's list tonight. Add with a date, see today,
+   what is still owed from earlier days, and everything planned ahead. */
+function viewTasks(){
+  const t=todayISO();
+  const todays=tasksOn(t).sort((a,b)=>a.done-b.done);
+  const overdue=overdueTasks();
+  const planned=state.tasks.filter(x=>dayDiff(t,x.date)>0).sort((a,b)=>a.date<b.date?-1:1);
+  let plannedBlock='';
+  if(planned.length){
+    const byDate=new Map();
+    planned.forEach(x=>{if(!byDate.has(x.date))byDate.set(x.date,[]);byDate.get(x.date).push(x);});
+    plannedBlock=`<h2>Planned<span class="count num">${planned.length}</span></h2>`+
+      [...byDate.entries()].map(([d,xs])=>`<h3>${esc(fmtLong(d))}</h3>`+xs.map(x=>taskRow(x)).join('')).join('');
+  }
+  return `<div class="goals-head" style="margin-top:4px"><h2>New goal</h2></div>`+
+    quickAddHTML(t,true)+
+    `<div class="goals-head"><h2>Today${todays.length?`<span class="count num">${todays.filter(x=>x.done).length}/${todays.length} done</span>`:''}</h2></div>`+
+    (todays.length?todays.map(x=>taskRow(x)).join(''):`<div class="empty">Nothing set for today yet.</div>`)+
+    (overdue.length?`<h2>Unfinished tasks<span class="count num">${overdue.length}</span></h2>`+
+      overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'')+
+    plannedBlock;
 }
 
 function viewCalendar(){
@@ -1434,64 +1483,76 @@ function viewCalendar(){
 function catOptions(selected){
   return state.cats.map(c=>`<option value="${esc(c.id)}" ${c.id===selected?'selected':''}>${esc(c.name)}</option>`).join('');
 }
-function viewManage(){
-  const segs=[['cats','Sections'],['habits','Habits'],['goals','Objectives'],['target','Settings']];
-  const head=`<div class="seg">${segs.map(s=>`<button data-act="seg" data-id="${s[0]}" aria-pressed="${seg===s[0]}">${s[1]}</button>`).join('')}</div>`;
-  let body='';
+/* ---- shared forms (Sections tab) ---- */
+function catFormHTML(ed){
+  return `<div class="form"><h3>${ed?'Edit section':'New section'}</h3>
+    <div class="field"><label for="f-cat-name">Name</label><input id="f-cat-name" placeholder="Fitness" value="${ed?esc(ed.name):''}" maxlength="40"></div>
+    <div class="field"><label>Colour</label><div class="swatches">${PALETTE.map(p=>`<button class="sw" style="background:${p}" data-act="color" data-id="${p}" aria-pressed="${pickedColor===p}" aria-label="${p}"></button>`).join('')}</div></div>
+    <div class="inline"><button class="btn primary" data-act="save-cat">${ed?'Save changes':'Add section'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
+  </div>`;
+}
+function habitFormHTML(ed,presetCat){
+  return `<div class="form"><h3>${ed?'Edit habit':'New habit'}</h3>
+    <div class="field"><label for="f-h-name">Name</label><input id="f-h-name" placeholder="Gym session" value="${ed?esc(ed.name):''}" maxlength="60"></div>
+    <div class="two">
+      <div class="field"><label for="f-h-xp">XP</label><input id="f-h-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:25}"></div>
+      <div class="field"><label for="f-h-mode">How often</label><select id="f-h-mode"><option value="daily" ${ed&&ed.mode==='daily'?'selected':''}>Once a day</option><option value="multi" ${ed&&ed.mode==='multi'?'selected':''}>Repeatable</option><option value="weekly" ${ed&&ed.mode==='weekly'?'selected':''}>Times a week</option></select></div>
+    </div>
+    <div id="f-h-weekly" class="two ${ed&&ed.mode==='weekly'?'':'hidden'}">
+      <div class="field"><label for="f-h-per">Times a week</label><input id="f-h-per" type="number" inputmode="numeric" min="1" max="14" step="1" value="${ed&&ed.mode==='weekly'?ed.perWeek:3}"></div>
+      <div class="field"><label for="f-h-bonus">Bonus when hit</label><input id="f-h-bonus" type="number" inputmode="numeric" min="0" step="1" value="${ed&&ed.mode==='weekly'?ed.bonus:50}"></div>
+    </div>
+    <div id="f-h-weekly-note" class="note ${ed&&ed.mode==='weekly'?'':'hidden'}" style="margin-bottom:10px">Each session pays its XP. Finishing the week's count pays the bonus once, on top. Weeks run Monday to Sunday.</div>
+    <div class="field"><label for="f-h-cat">Section</label><select id="f-h-cat">${catOptions(ed?ed.cat:presetCat)}</select></div>
+    <div class="inline"><button class="btn primary" data-act="save-habit">${ed?'Save changes':'Add habit'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
+  </div>`;
+}
+function goalFormHTML(ed,presetCat){
+  return `<div class="form"><h3>${ed?'Edit objective':'New objective'}</h3>
+    <div class="field"><label for="f-g-name">What is it</label><input id="f-g-name" placeholder="Run 10k under 50 min" value="${ed?esc(ed.name):''}" maxlength="60"></div>
+    <div class="two">
+      <div class="field"><label for="f-g-xp">XP when done</label><input id="f-g-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:250}"></div>
+      <div class="field"><label for="f-g-cat">Section</label><select id="f-g-cat">${catOptions(ed?ed.cat:presetCat)}</select></div>
+    </div>
+    <div class="inline"><button class="btn primary" data-act="save-goal">${ed?'Save changes':'Add objective'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
+  </div>`;
+}
 
-  if(seg==='cats'){
-    const ed=editing&&editing.type==='cat'?state.cats.find(c=>c.id===editing.id):null;
-    body=state.cats.map(c=>{
-      const n=state.habits.filter(h=>h.cat===c.id).length+state.goals.filter(g=>g.cat===c.id).length;
-      return `<div class="row"><div class="edge" style="background:${c.color}"></div>
-        <div class="body"><div class="name">${esc(c.name)}</div><div class="sub">${n} item${n===1?'':'s'}</div></div>
-        <div class="acts"><button data-act="edit-cat" data-id="${esc(c.id)}">Edit</button><button class="danger" data-act="del-cat" data-id="${esc(c.id)}">Delete</button></div></div>`;
-    }).join('')+
-    `<div class="form" style="margin-top:14px"><h3>${ed?'Edit section':'New section'}</h3>
-      <div class="field"><label for="f-cat-name">Name</label><input id="f-cat-name" placeholder="Fitness" value="${ed?esc(ed.name):''}" maxlength="40"></div>
-      <div class="field"><label>Colour</label><div class="swatches">${PALETTE.map(p=>`<button class="sw" style="background:${p}" data-act="color" data-id="${p}" aria-pressed="${pickedColor===p}" aria-label="${p}"></button>`).join('')}</div></div>
-      <div class="inline"><button class="btn primary" data-act="save-cat">${ed?'Save changes':'Add section'}</button>${ed?'<button class="btn ghost" data-act="cancel">Cancel</button>':''}</div>
+/* One box per section, its habits and objectives together inside it. Add and
+   edit forms open in place, inside the box they belong to. */
+function viewSections(){
+  const boxes=state.cats.map(c=>{
+    const hs=state.habits.filter(h=>h.cat===c.id);
+    const open=state.goals.filter(g=>g.cat===c.id&&!g.done);
+    const done=state.goals.filter(g=>g.cat===c.id&&g.done);
+    const edCat=editing&&editing.type==='cat'&&editing.id===c.id;
+    const edHabit=editing&&editing.type==='habit'?state.habits.find(h=>h.id===editing.id&&h.cat===c.id):null;
+    const edGoal=editing&&editing.type==='goal'?state.goals.find(g=>g.id===editing.id&&g.cat===c.id):null;
+    const addHabit=adding&&adding.type==='habit'&&adding.cat===c.id;
+    const addGoal=adding&&adding.type==='goal'&&adding.cat===c.id;
+    const habitRows=hs.map(h=>`<div class="row"><div class="edge"></div>
+      <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':h.mode==='weekly'?h.perWeek+'&times; a week'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):'Repeatable'} &middot; ${h.xp} XP</div></div>
+      <div class="acts"><button data-act="edit-habit" data-id="${esc(h.id)}">Edit</button><button class="danger" data-act="del-habit" data-id="${esc(h.id)}">Delete</button></div></div>`).join('');
+    return `<div class="secbox" style="border-top:3px solid ${c.color}">
+      <div class="sechead"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b>
+        <div class="acts"><button data-act="edit-cat" data-id="${esc(c.id)}">Edit</button><button class="danger" data-act="del-cat" data-id="${esc(c.id)}">Delete</button></div></div>
+      ${edCat?catFormHTML(c):''}
+      <h3>Habits${hs.length?`<span class="count num" style="float:right;font-weight:500">${hs.length}</span>`:''}</h3>
+      ${habitRows||`<div class="empty">No habits yet.</div>`}
+      ${edHabit?habitFormHTML(edHabit,c.id):addHabit?habitFormHTML(null,c.id):`<button class="mini" data-act="add-habit" data-id="${esc(c.id)}">+ Add habit</button>`}
+      <h3>Objectives${done.length?`<span class="count num" style="float:right;font-weight:500">${done.length} done</span>`:''}</h3>
+      ${open.map(g=>goalRow(g,{manage:true})).join('')+done.map(g=>goalRow(g,{manage:true})).join('')||`<div class="empty">No objectives yet.</div>`}
+      ${edGoal?goalFormHTML(edGoal,c.id):addGoal?goalFormHTML(null,c.id):`<button class="mini" data-act="add-objective" data-id="${esc(c.id)}">+ Add objective</button>`}
     </div>`;
-  }
-  else if(seg==='habits'){
-    const ed=editing&&editing.type==='habit'?state.habits.find(h=>h.id===editing.id):null;
-    body=(state.habits.length?state.cats.map(c=>{
-      const hs=state.habits.filter(h=>h.cat===c.id); if(!hs.length) return '';
-      return `<h2 style="margin-top:6px"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</h2>`+hs.map(h=>`<div class="row"><div class="edge" style="background:${c.color}"></div>
-        <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':h.mode==='weekly'?h.perWeek+'&times; a week'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):'Repeatable'} &middot; ${h.xp} XP</div></div>
-        <div class="acts"><button data-act="edit-habit" data-id="${esc(h.id)}">Edit</button><button class="danger" data-act="del-habit" data-id="${esc(h.id)}">Delete</button></div></div>`).join('');
-    }).join(''):`<div class="empty">No habits yet.</div>`)+
-    `<div class="form" style="margin-top:14px"><h3>${ed?'Edit habit':'New habit'}</h3>
-      <div class="field"><label for="f-h-name">Name</label><input id="f-h-name" placeholder="Gym session" value="${ed?esc(ed.name):''}" maxlength="60"></div>
-      <div class="two">
-        <div class="field"><label for="f-h-xp">XP</label><input id="f-h-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:25}"></div>
-        <div class="field"><label for="f-h-mode">How often</label><select id="f-h-mode"><option value="daily" ${ed&&ed.mode==='daily'?'selected':''}>Once a day</option><option value="multi" ${ed&&ed.mode==='multi'?'selected':''}>Repeatable</option><option value="weekly" ${ed&&ed.mode==='weekly'?'selected':''}>Times a week</option></select></div>
-      </div>
-      <div id="f-h-weekly" class="two ${ed&&ed.mode==='weekly'?'':'hidden'}">
-        <div class="field"><label for="f-h-per">Times a week</label><input id="f-h-per" type="number" inputmode="numeric" min="1" max="14" step="1" value="${ed&&ed.mode==='weekly'?ed.perWeek:3}"></div>
-        <div class="field"><label for="f-h-bonus">Bonus when hit</label><input id="f-h-bonus" type="number" inputmode="numeric" min="0" step="1" value="${ed&&ed.mode==='weekly'?ed.bonus:50}"></div>
-      </div>
-      <div id="f-h-weekly-note" class="note ${ed&&ed.mode==='weekly'?'':'hidden'}" style="margin-bottom:10px">Each session pays its XP. Finishing the week's count pays the bonus once, on top. Weeks run Monday to Sunday.</div>
-      <div class="field"><label for="f-h-cat">Section</label><select id="f-h-cat">${catOptions(ed?ed.cat:state.cats[0].id)}</select></div>
-      <div class="inline"><button class="btn primary" data-act="save-habit">${ed?'Save changes':'Add habit'}</button>${ed?'<button class="btn ghost" data-act="cancel">Cancel</button>':''}</div>
-    </div>`;
-  }
-  else if(seg==='goals'){
-    const ed=editing&&editing.type==='goal'?state.goals.find(g=>g.id===editing.id):null;
-    const open=state.goals.filter(g=>!g.done),done=state.goals.filter(g=>g.done);
-    body=(open.length?open.map(g=>goalRow(g,{manage:true})).join(''):`<div class="empty">No open objectives.</div>`)+
-      (done.length?`<h2>Completed<span class="count">${done.length}</span></h2>`+done.map(g=>goalRow(g,{manage:true})).join(''):'')+
-    `<div class="form" style="margin-top:14px"><h3>${ed?'Edit objective':'New objective'}</h3>
-      <div class="field"><label for="f-g-name">What is it</label><input id="f-g-name" placeholder="Run 10k under 50 min" value="${ed?esc(ed.name):''}" maxlength="60"></div>
-      <div class="two">
-        <div class="field"><label for="f-g-xp">XP when done</label><input id="f-g-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:250}"></div>
-        <div class="field"><label for="f-g-cat">Section</label><select id="f-g-cat">${catOptions(ed?ed.cat:state.cats[0].id)}</select></div>
-      </div>
-      <div class="inline"><button class="btn primary" data-act="save-goal">${ed?'Save changes':'Add objective'}</button>${ed?'<button class="btn ghost" data-act="cancel">Cancel</button>':''}</div>
-    </div>`;
-  }
-  else{
-    body=`<div class="form"><h3>Target</h3>
+  }).join('');
+  const newCat=adding&&adding.type==='cat'
+    ?catFormHTML(null)
+    :`<button class="btn ghost" data-act="add-cat">+ New section</button>`;
+  return boxes+newCat;
+}
+
+function viewSettings(){
+  return `<div class="form"><h3>Target</h3>
       <div class="field"><label for="f-target">XP goal</label><input id="f-target" type="number" inputmode="numeric" min="1" step="1" value="${state.target}"></div>
       <div class="two">
         <div class="field"><label for="f-start">Counting from</label><input id="f-start" type="date" value="${state.start}"></div>
@@ -1538,8 +1599,6 @@ function viewManage(){
       <div class="inline"><button class="btn danger" data-act="reset">Reset everything</button></div>
     </div>
     <div class="note" style="margin-top:4px">Level curve: level 2 at 100 XP, level 5 at 700, level 10 at 2,700, level 20 at 10,450. Each level costs 50 XP more than the one before.</div>`;
-  }
-  return head+body;
 }
 
 /* =================================================================
@@ -1547,14 +1606,15 @@ function viewManage(){
 ================================================================== */
 function render(){
   document.getElementById('today').textContent=fmtLong(todayISO());
-  const v={home:viewHome,calendar:viewCalendar,manage:viewManage}[tab]||viewHome;
+  const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,settings:viewSettings}[tab]||viewHome;
   document.getElementById('view').innerHTML=v();
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===tab?'true':'false'));
   updateBadge();
 }
 
 const ACTIONS={
-  tab:id=>{tab=id;editing=null;showTaskForm=false;render();window.scrollTo(0,0);},
+  tab:id=>{tab=id;editing=null;adding=null;render();window.scrollTo(0,0);},
+  'go-tasks':()=>{tab='tasks';editing=null;adding=null;render();window.scrollTo(0,0);const el=document.getElementById('f-t-name');if(el)el.focus();},
   log:id=>logHabit(id),
   goal:id=>toggleGoal(id),
   undo:()=>undoLast(),
@@ -1563,22 +1623,23 @@ const ACTIONS={
   'cal-prev':()=>{cal.m--;if(cal.m<0){cal.m=11;cal.y--;}render();},
   'cal-next':()=>{cal.m++;if(cal.m>11){cal.m=0;cal.y++;}render();},
   'log-day':iso=>{const sel=document.getElementById('f-cal-habit');if(sel&&sel.value)logHabit(sel.value,iso);},
-  seg:id=>{seg=id;editing=null;pickedColor=PALETTE[0];render();},
   color:id=>{pickedColor=id;document.querySelectorAll('.sw').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===id));},
+  'add-cat':()=>{adding={type:'cat'};editing=null;pickedColor=PALETTE[0];render();focusForm('f-cat-name');},
+  'add-habit':id=>{adding={type:'habit',cat:id};editing=null;render();focusForm('f-h-name');},
+  'add-objective':id=>{adding={type:'goal',cat:id};editing=null;render();focusForm('f-g-name');},
   'save-cat':()=>saveCat(),
-  'edit-cat':id=>{const c=state.cats.find(x=>x.id===id);if(!c)return;editing={type:'cat',id};pickedColor=c.color;render();focusForm('f-cat-name');},
+  'edit-cat':id=>{const c=state.cats.find(x=>x.id===id);if(!c)return;editing={type:'cat',id};adding=null;pickedColor=c.color;render();focusForm('f-cat-name');},
   'del-cat':id=>deleteCat(id),
   'save-habit':()=>saveHabit(),
-  'edit-habit':id=>{editing={type:'habit',id};render();focusForm('f-h-name');},
+  'edit-habit':id=>{editing={type:'habit',id};adding=null;render();focusForm('f-h-name');},
   'del-habit':id=>deleteHabit(id),
   'save-goal':()=>saveGoal(),
-  'edit-goal':id=>{editing={type:'goal',id};render();focusForm('f-g-name');},
+  'edit-goal':id=>{editing={type:'goal',id};adding=null;render();focusForm('f-g-name');},
   'del-goal':id=>deleteGoal(id),
-  cancel:()=>{editing=null;pickedColor=PALETTE[0];render();},
+  cancel:()=>{editing=null;adding=null;pickedColor=PALETTE[0];render();},
   'save-target':()=>saveTarget(),
   export:()=>exportData(),
   reset:()=>resetAll(),
-  'task-form':()=>{showTaskForm=!showTaskForm;render();if(showTaskForm){const el=document.getElementById('f-t-name');if(el)el.focus();}},
   'task-add':iso=>addTask(iso),
   task:id=>toggleTask(id),
   'task-del':id=>deleteTask(id),

@@ -66,8 +66,10 @@ with sync_playwright() as p:
                             navigator.clearAppBadge = () => { window.__badge.push(0); return Promise.resolve(); }; }""")
     check("pending count shown (4 daily habits left)", "4 left" in page.inner_text(".pendline"), page.inner_text(".pendline"))
     check("21:00 reminder banner shows at 23:30 with pending items", "21:00 reminder" in page.inner_text("#view") and "4 still to do" in page.inner_text("#view"))
-    page.locator("button[data-act=task-form]").click(); page.wait_for_timeout(50)
-    check("quick-add form opens and focuses name", page.evaluate("document.activeElement && document.activeElement.id") == "f-t-name")
+    page.locator("button[data-act=go-tasks]").click(); page.wait_for_timeout(50)
+    check("+ Add goal opens the Tasks tab with the form focused",
+          page.evaluate("document.activeElement && document.activeElement.id") == "f-t-name"
+          and page.locator("#f-t-date").count() == 1)
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(50)
     check("empty goal rejected", page.locator(".row.task").count() == 0)
     page.fill("#f-t-name", "Finish marketing homework"); page.fill("#f-t-xp", "40")
@@ -78,7 +80,9 @@ with sync_playwright() as p:
     check("section remembered from last goal", page.evaluate("document.getElementById('f-t-cat').selectedOptions[0].text") == "School")
     page.fill("#f-t-name", "Email tutor"); page.fill("#f-t-xp", "15")
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(50)
-    check("two goals, 0/2 done, 6 left", "0/2 done" in page.locator(".goals-head").inner_text() and "6 left" in page.inner_text(".pendline"))
+    check("two goals today, 0/2 done on the Tasks tab", "0/2 done" in page.locator(".goals-head", has_text="Today").inner_text())
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
+    check("home shows the same two goals, 6 left", page.locator(".row.task").count() == 2 and "6 left" in page.inner_text(".pendline"))
     page.locator(".row.task[data-act=task]", has_text="Email tutor").click(); page.wait_for_timeout(50)
     check("completing a goal adds its XP", page.inner_text(".total").strip() == "115" and "1/2 done" in page.locator(".goals-head").inner_text())
     check("School section counts goal XP today", "15 XP today" in page.locator("h2", has_text="School").inner_text())
@@ -90,15 +94,20 @@ with sync_playwright() as p:
     calls = page.evaluate("window.__badge")
     check("app badge updated with pending count", calls and calls[-1] == 5, calls)
 
-    # complete an objective, then reopen it
-    obj = page.locator(".row[data-act=goal]", has_text="Bench press")
-    obj.click(); page.wait_for_timeout(50)
+    # complete an objective from its section box, undo it from home
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_timeout(80)
+    check("each section is a box holding its habits and objectives",
+          page.locator(".secbox").count() == 3
+          and page.locator(".secbox", has_text="Fitness").locator(".row", has_text="Gym session").count() == 1
+          and page.locator(".secbox", has_text="Fitness").locator(".row", has_text="Bench press").count() == 1)
+    page.locator(".secbox .row", has_text="Bench press").locator(".tick").click(); page.wait_for_timeout(80)
+    check("objective ticked inside its box", "1 done" in page.locator(".secbox", has_text="Fitness").inner_text()
+          and "done" in (page.locator(".secbox .row", has_text="Bench press").get_attribute("class") or ""))
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
     check("objective adds XP", page.inner_text(".total").strip() == "400")
-    check("objective moves out of open list", page.locator(".row[data-act=goal]", has_text="Bench press").count() == 0)
-    check("section notes done count", "1 done" in page.locator("h3", has_text="Objectives").first.inner_text())
+    check("home lists habits only, no objective rows", page.locator(".row[data-act=goal]").count() == 0)
     page.locator("button[data-act=undo]").click(); page.wait_for_timeout(50)
-    check("undo reopens objective and removes XP", page.inner_text(".total").strip() == "100"
-          and page.locator(".row[data-act=goal]", has_text="Bench press").count() == 1)
+    check("undo reopens objective and removes XP", page.inner_text(".total").strip() == "100")
 
     # ---------- persistence across reload ----------
     page.reload(); page.wait_for_selector(".hero")
@@ -116,9 +125,9 @@ with sync_playwright() as p:
     check("gym resets to 0x today after midnight", "Tap each time" in page.locator(".row[data-act=log]", has_text="Gym session").inner_text())
     check("streak still 1 (yesterday counts)", "1 day streak" in page.inner_text(".streak"))
     check("total XP unchanged after rollover", page.inner_text(".total").strip() == "100")
-    check("unfinished goal from yesterday shown as overdue", "Unfinished from earlier" in page.inner_text("#view") and "Set for 7 Sept" in page.locator(".row.task", has_text="Finish marketing homework").inner_text())
+    check("unfinished goal from yesterday shown under Unfinished tasks", "Unfinished tasks" in page.inner_text("#view") and "Set for 7 Sept" in page.locator(".row.task", has_text="Finish marketing homework").inner_text())
     page.locator("button[data-act=task-move]").click(); page.wait_for_timeout(50)
-    check("move to today", "Unfinished from earlier" not in page.inner_text("#view") and "0/1 done" in page.locator(".goals-head").inner_text())
+    check("move to today", "Unfinished tasks" not in page.inner_text("#view") and "0/1 done" in page.locator(".goals-head").inner_text())
     check("no reminder banner at 00:15 before first time", "reminder." not in page.inner_text("#view"))
 
     # ---------- calendar ----------
@@ -161,33 +170,42 @@ with sync_playwright() as p:
     for _ in range(4): page.locator("button[data-act=cal-prev]").click()
     page.screenshot(path="shots/calendar.png", full_page=True)
 
-    # ---------- manage: sections ----------
-    page.locator("button[data-act=tab][data-id=manage]").click()
-    page.wait_for_selector(".seg")
+    # ---------- sections tab: section boxes ----------
+    page.locator("button[data-act=tab][data-id=sections]").click()
+    page.wait_for_selector(".secbox")
+    check("no forms open until asked", page.locator("#view .form").count() == 0)
+    page.locator("button[data-act=add-cat]").click(); page.wait_for_timeout(50)
     page.fill("#f-cat-name", "Career")
     page.locator(".sw[data-id='#F97316']").click()
     page.locator("button[data-act=save-cat]").click(); page.wait_for_timeout(50)
-    check("add section", page.locator(".row", has_text="Career").count() == 1)
-    page.locator(".row", has_text="Career").locator("button[data-act=edit-cat]").click()
+    check("add section makes a new box", page.locator(".secbox", has_text="Career").count() == 1)
+    page.locator(".secbox", has_text="Career").locator("button[data-act=edit-cat]").click()
     page.wait_for_timeout(50)
-    check("edit form prefilled", page.input_value("#f-cat-name") == "Career" and page.locator(".sw[aria-pressed=true]").get_attribute("data-id") == "#F97316")
+    check("edit form prefilled, inside its own box",
+          page.input_value("#f-cat-name") == "Career"
+          and page.locator(".sw[aria-pressed=true]").get_attribute("data-id") == "#F97316"
+          and page.locator(".secbox", has_text="Career").locator("#f-cat-name").count() == 1)
     page.fill("#f-cat-name", "Work")
     page.locator("button[data-act=save-cat]").click(); page.wait_for_timeout(50)
-    check("rename section", page.locator(".row", has_text="Work").count() == 1 and page.locator(".row", has_text="Career").count() == 0)
-    page.locator(".row", has_text="School").locator("button[data-act=del-cat]").click(); page.wait_for_timeout(80)
-    check("delete section", page.locator(".row", has_text="School").count() == 0)
+    check("rename section", page.locator(".secbox", has_text="Work").count() == 1 and page.locator(".secbox", has_text="Career").count() == 0)
+    page.locator(".secbox", has_text="School").locator("button[data-act=del-cat]").click(); page.wait_for_timeout(80)
+    check("delete section", page.locator(".secbox", has_text="School").count() == 0)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     orphan = [h for h in d["habits"] if h["cat"] not in {c["id"] for c in d["cats"]}]
     check("deleted section's items reassigned, no orphans", not orphan, orphan)
 
-    # ---------- manage: habits ----------
-    page.locator("button[data-act=seg][data-id=habits]").click()
+    # ---------- sections tab: habits ----------
+    page.locator(".secbox", has_text="Work").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    check("add-habit form opens inside that box with its section preset",
+          page.locator(".secbox", has_text="Work").locator("#f-h-name").count() == 1
+          and page.evaluate("document.getElementById('f-h-cat').selectedOptions[0].text") == "Work")
     page.fill("#f-h-name", "Cold shower")
     page.fill("#f-h-xp", "12")
     page.select_option("#f-h-mode", "daily")
-    page.select_option("#f-h-cat", label="Work")
     page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(50)
     check("add habit", page.locator(".row", has_text="Cold shower").count() == 1)
+    check("form closes after a successful save", page.locator("#f-h-name").count() == 0)
+    page.locator(".secbox", has_text="Work").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
     page.fill("#f-h-name", "Bad")
     page.fill("#f-h-xp", "0")
     page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(50)
@@ -213,15 +231,18 @@ with sync_playwright() as p:
     check("delete habit", page.locator(".row", has_text="Cold shower").count() == 0)
     page.screenshot(path="shots/manage_habits.png", full_page=True)
 
-    # ---------- manage: objectives ----------
-    page.locator("button[data-act=seg][data-id=goals]").click()
+    # ---------- sections tab: objectives ----------
+    page.locator(".secbox", has_text="Work").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
+    check("add-objective form opens inside that box with its section preset",
+          page.locator(".secbox", has_text="Work").locator("#f-g-name").count() == 1
+          and page.evaluate("document.getElementById('f-g-cat').selectedOptions[0].text") == "Work")
     page.fill("#f-g-name", "Get Equita return offer")
     page.fill("#f-g-xp", "500")
-    page.select_option("#f-g-cat", label="Work")
     page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(50)
-    check("add objective", page.locator(".row", has_text="Equita").count() == 1)
+    check("add objective", page.locator(".secbox", has_text="Work").locator(".row", has_text="Equita").count() == 1)
     page.locator(".row", has_text="Run 10k").locator(".tick").click(); page.wait_for_timeout(50)
-    check("complete objective from manage", page.locator("h2", has_text="Completed").count() == 1)
+    check("complete objective from its box", "done" in (page.locator(".row", has_text="Run 10k").get_attribute("class") or "")
+          and "1 done" in page.locator(".secbox", has_text="Fitness").inner_text())
     page.locator(".row", has_text="Run 10k").locator("button[data-act=edit-goal]").click(); page.wait_for_timeout(50)
     page.fill("#f-g-xp", "400")
     page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(50)
@@ -232,8 +253,8 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("deleting a completed objective removes its XP", not [e for e in d["log"] if e["type"] == "goal"])
 
-    # ---------- target & data ----------
-    page.locator("button[data-act=seg][data-id=target]").click()
+    # ---------- settings tab: target & data ----------
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(50)
     page.fill("#f-target", "5000")
     page.fill("#f-deadline", "2026-09-01")
     page.locator("button[data-act=save-target]").click(); page.wait_for_timeout(50)
@@ -352,8 +373,8 @@ with sync_playwright() as p:
     page.on("dialog", lambda dlg: dlg.accept())
     page.goto(URL); page.wait_for_selector(".hero")
 
-    page.locator("button[data-act=tab][data-id=manage]").click()
-    page.locator("button[data-act=seg][data-id=habits]").click()
+    page.locator("button[data-act=tab][data-id=sections]").click()
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
     check("weekly fields hidden until 'Times a week' is picked",
           "hidden" in page.locator("#f-h-weekly").get_attribute("class"))
     page.fill("#f-h-name", "Weekly gym")
@@ -430,8 +451,7 @@ with sync_playwright() as p:
     check("last week's XP and bonus are untouched", page.inner_text(".total").strip() == "210")
 
     # raising the count must not strip a bonus already earned in an earlier week
-    page.locator("button[data-act=tab][data-id=manage]").click()
-    page.locator("button[data-act=seg][data-id=habits]").click()
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_timeout(60)
     page.locator(".row", has_text="Weekly gym").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(60)
     check("edit form prefilled with the weekly settings",
           page.input_value("#f-h-per") == "3" and page.input_value("#f-h-bonus") == "60")
@@ -459,12 +479,12 @@ with sync_playwright() as p:
     page.on("dialog", lambda dlg: dlg.accept())
     page.goto(URL); page.wait_for_selector(".hero")
     # a daily goal in School, then delete the School section
-    page.locator("button[data-act=task-form]").click(); page.wait_for_timeout(50)
+    page.locator("button[data-act=tab][data-id=tasks]").click(); page.wait_for_timeout(50)
     page.fill("#f-t-name", "Homework"); page.fill("#f-t-xp", "40")
     page.select_option("#f-t-cat", label="School")
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(60)
-    page.locator("button[data-act=tab][data-id=manage]").click(); page.wait_for_selector(".seg")
-    page.locator(".row", has_text="School").locator("button[data-act=del-cat]").click(); page.wait_for_timeout(80)
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="School").locator("button[data-act=del-cat]").click(); page.wait_for_timeout(80)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     cat_ids = {c["id"] for c in d["cats"]}
     check("deleting a section moves its daily goals too, no orphans",
@@ -500,24 +520,16 @@ with sync_playwright() as p:
 
     # every painted surface must come from a token: nothing may stay pure white
     whites = []
-    for t in ("home", "calendar", "manage"):
+    for t in ("home", "tasks", "sections", "calendar", "settings"):
         page.locator("button[data-act=tab][data-id=%s]" % t).click(); page.wait_for_timeout(80)
         whites += page.evaluate("""() => [...document.querySelectorAll('#view *, .tabs, .tabs *, .toast')]
             .filter(e => !e.closest('.hero'))   // the hero bar is white on its blue gradient, by design
             .filter(e => getComputedStyle(e).backgroundColor === 'rgb(255, 255, 255)')
             .map(e => e.tagName + '.' + (e.className || '')).slice(0, 8)""")
-    page.locator("button[data-act=tab][data-id=manage]").click()
-    for s in ("cats", "habits", "goals", "target"):
-        page.locator("button[data-act=seg][data-id=%s]" % s).click(); page.wait_for_timeout(80)
-        whites += page.evaluate("""() => [...document.querySelectorAll('#view *')]
-            .filter(e => !e.closest('.hero'))   // the hero bar is white on its blue gradient, by design
-            .filter(e => getComputedStyle(e).backgroundColor === 'rgb(255, 255, 255)')
-            .map(e => e.tagName + '.' + (e.className || '')).slice(0, 8)""")
     check("no surface is left hardcoded white in dark mode", not whites, whites)
-    page.screenshot(path="shots/dark_manage.png", full_page=True)
+    page.screenshot(path="shots/dark_settings.png", full_page=True)
 
     # forcing a theme overrides the phone, and survives a reload without flashing
-    page.locator("button[data-act=seg][data-id=target]").click(); page.wait_for_timeout(60)
     page.locator("button[data-act=theme][data-id=light]").click(); page.wait_for_timeout(60)
     check("forcing light overrides a dark phone",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
@@ -525,8 +537,7 @@ with sync_playwright() as p:
     page.reload(); page.wait_for_selector(".hero")
     check("the head script applies the forced theme before the first paint",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light")
-    page.locator("button[data-act=tab][data-id=manage]").click()
-    page.locator("button[data-act=seg][data-id=target]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.locator("button[data-act=theme][data-id=auto]").click(); page.wait_for_timeout(60)
     check("back on auto it follows the phone again",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "dark")
@@ -571,8 +582,7 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("exporting records the backup date", d["lastBackup"] == "2026-09-08", d.get("lastBackup"))
     check("the nudge goes away once backed up", page.locator(".remind.backup").count() == 0)
-    page.locator("button[data-act=tab][data-id=manage]").click()
-    page.locator("button[data-act=seg][data-id=target]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     check("settings shows when the last backup was", "Last backup 8 Sept 2026" in page.inner_text("#view"), page.inner_text("#view")[:200])
 
     # it comes back when the backup goes stale

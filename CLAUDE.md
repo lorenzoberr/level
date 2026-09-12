@@ -49,9 +49,21 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     the week. They are derived, so `undoLast()` steps over them and the calendar
     gives them no Remove button — remove one of the week's sessions instead.
 - Level curve: `xpForLevel(L) = 100(L-1) + 25(L-1)(L-2)`.
-- Rendering: three views (`viewHome`, `viewCalendar`, `viewManage`) return HTML
-  strings; `render()` replaces `#view`. All clicks go through one delegated
-  listener keyed on `data-act` / `data-id`. Never use inline `onclick`.
+- Rendering: five tabs, one view function each (`viewHome`, `viewTasks`,
+  `viewSections`, `viewCalendar`, `viewSettings`); each returns an HTML string
+  and `render()` replaces `#view`. All clicks go through one delegated listener
+  keyed on `data-act` / `data-id`. Never use inline `onclick`.
+  - **Home** is the daily loop only: tick habits, tick today's goals, log the
+    weight, see what is owed. Nothing is added or edited here.
+  - **Tasks** is where daily goals are added (with a date field for planning
+    ahead) and lists Today, "Unfinished tasks" carried over from earlier days,
+    and Planned (future, grouped by date). Overdue goals also stay visible on
+    Home, because that is where they get acted on.
+  - **Sections** shows one `.secbox` per section with its habits and
+    objectives inside it. Add/edit forms open in place inside the box they
+    belong to: UI state `editing` ({type,id}) for existing items, `adding`
+    ({type,cat}) for new ones; a successful save or Cancel clears both.
+  - **Settings** holds target, weight goal, appearance, reminders, data.
 - All user strings go through `esc()` before entering HTML.
 - **Theme.** Every colour the app paints is a CSS custom property on `:root`;
   `:root[data-theme="dark"]` restates the values and nothing else. Never write a
