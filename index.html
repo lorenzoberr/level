@@ -1408,8 +1408,14 @@ function viewHome(){
   const todays=state.hideDone?allToday.filter(x=>!x.done):allToday;
   const overdue=overdueTasks();
   const hiddenHint=n=>n?`<button class="mini dim" data-act="toggle-done">${n} done hidden &middot; show</button>`:'';
+  // the toggle shows whenever anything on this page is hideable: a done goal,
+  // a ticked daily habit, or a weekly habit whose count is met
+  const habitsDone=state.habits.filter(h=>
+    (h.mode==='daily'&&loggedOn(h.id,t).length)||
+    (h.mode==='weekly'&&weeklyLeft(h,t)===0)).length;
+  const showToggle=doneCount+habitsDone>0||state.hideDone;
   const goalsBlock=`<div class="goals-head"><h2>Today's goals${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>
-      <div>${doneCount?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button> `:''}<button data-act="go-tasks">+ Add goal</button></div></div>`+
+      <div>${showToggle?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button> `:''}<button data-act="go-tasks">+ Add goal</button></div></div>`+
     (todays.length?todays.map(x=>taskRow(x)).join(''):allToday.length?'':`<div class="empty">No goals for today. Add one-off things like homework or errands from the Tasks tab.</div>`)+
     (state.hideDone?hiddenHint(doneCount):'')+
     (overdue.length?`<h3>Unfinished tasks</h3>`+overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'');
@@ -1461,7 +1467,7 @@ function viewTasks(){
   }
   return `<div class="goals-head" style="margin-top:4px"><h2>New goal</h2></div>`+
     quickAddHTML(t,true)+
-    `<div class="goals-head"><h2>Today${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>${doneCount?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button>`:''}</div>`+
+    `<div class="goals-head"><h2>Today${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>${doneCount||state.hideDone?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button>`:''}</div>`+
     (todays.length?todays.map(x=>taskRow(x)).join(''):allToday.length?'':`<div class="empty">Nothing set for today yet.</div>`)+
     (state.hideDone&&doneCount?`<button class="mini dim" data-act="toggle-done">${doneCount} done hidden &middot; show</button>`:'')+
     (overdue.length?`<h2>Unfinished tasks<span class="count num">${overdue.length}</span></h2>`+
@@ -1584,6 +1590,11 @@ function goalFormHTML(ed,presetCat){
 /* One box per section, its habits and objectives together inside it. Add and
    edit forms open in place, inside the box they belong to. */
 function viewSections(){
+  const doneObjectives=state.goals.filter(g=>g.done).length;
+  const head=doneObjectives||state.hideDone
+    ?`<div class="goals-head" style="margin-top:4px"><h2>Your sections</h2>
+       <button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button></div>`
+    :'';
   const boxes=state.cats.map(c=>{
     const hs=state.habits.filter(h=>h.cat===c.id);
     const open=state.goals.filter(g=>g.cat===c.id&&!g.done);
@@ -1612,7 +1623,7 @@ function viewSections(){
   const newCat=adding&&adding.type==='cat'
     ?catFormHTML(null)
     :`<button class="btn ghost" data-act="add-cat">+ New section</button>`;
-  return boxes+newCat;
+  return head+boxes+newCat;
 }
 
 /* =================================================================

@@ -795,7 +795,11 @@ with sync_playwright() as p:
     page.clock.install(time=datetime.datetime(2026, 9, 10, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
     page.goto(URL); page.wait_for_selector(".hero")
+    check("no hide toggle while nothing is done yet",
+          page.locator(".goals-head button[data-act=toggle-done]").count() == 0)
     page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(50)
+    check("ticking a habit alone is enough to surface the hide toggle",
+          page.locator(".goals-head button[data-act=toggle-done]").count() == 1)
     page.locator("button[data-act=go-tasks]").click(); page.wait_for_timeout(50)
     page.fill("#f-t-name", "Water the plants"); page.fill("#f-t-xp", "5")
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(50)
@@ -809,8 +813,10 @@ with sync_playwright() as p:
           and "done hidden" in page.locator(".mini.dim").inner_text())
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("the preference is saved", d["hideDone"] is True)
-    # sections tab tucks done objectives away the same way
+    # sections tab tucks done objectives away the same way, with its own toggle
     page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    check("sections has its own hide toggle in the header",
+          page.locator(".goals-head button[data-act=toggle-done]").count() == 1)
     page.locator(".secbox .row", has_text="Bench press").locator(".tick").click(); page.wait_for_timeout(60)
     check("done objective hidden in its box, with a count",
           page.locator(".secbox .row.done").count() == 0
