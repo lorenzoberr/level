@@ -827,6 +827,125 @@ with sync_playwright() as p:
           and json.loads(page.evaluate("localStorage.getItem('level.v2')"))["hideDone"] is False)
     ctx.close()
 
+    # ---------- 3j. measurable objectives ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    merr = []
+    page.on("pageerror", lambda e: merr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 13, 9, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector(".hero")
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-name", "Bench 80 kg")
+    page.fill("#f-g-xp", "300")
+    page.fill("#f-g-mcur", "72,5")     # comma decimal, like the Italian keypad
+    page.fill("#f-g-mtarget", "80")
+    page.fill("#f-g-munit", "kg")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    gj = [g for g in d["goals"] if g["name"] == "Bench 80 kg"][0]
+    check("measurable objective stored with its anchor",
+          gj["mStart"] == 72.5 and gj["mCur"] == 72.5 and gj["mTarget"] == 80 and gj["mUnit"] == "kg", gj)
+    mrow = lambda: page.locator(".secbox .row", has_text="Bench 80 kg")
+    check("row shows numbers and a progress bar",
+          "72.5 / 80 kg" in mrow().inner_text() and mrow().locator(".gbar").count() == 1, mrow().inner_text())
+    mrow().locator("button[data-act=edit-goal]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-mcur", "76")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    check("progress bar moves with the current number (76 of 72.5->80 = 47%)",
+          page.evaluate("document.querySelector('.gbar i').style.width") == "47%",
+          page.evaluate("document.querySelector('.gbar i').style.width"))
+    mrow().locator("button[data-act=edit-goal]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-mcur", "80")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    gj = [g for g in d["goals"] if g["name"] == "Bench 80 kg"][0]
+    check("reaching the target completes the objective by itself, full XP",
+          gj["done"] is True and [e for e in d["log"] if e["type"] == "goal"][0]["xp"] == 300)
+    # a downward objective (time under 50 min) works from the other side
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-name", "Ten-k time")
+    page.fill("#f-g-xp", "250")
+    page.fill("#f-g-mcur", "55"); page.fill("#f-g-mtarget", "50"); page.fill("#f-g-munit", "min")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    page.locator(".secbox .row", has_text="Ten-k time").locator("button[data-act=edit-goal]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-mcur", "49,5")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("downward target auto-completes when the number gets under it",
+          [g for g in d["goals"] if g["name"] == "Ten-k time"][0]["done"] is True)
+    # one number without the other is refused
+    page.locator(".secbox", has_text="School").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
+    page.fill("#f-g-name", "Broken"); page.fill("#f-g-mtarget", "10")
+    page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("a target without a current number is refused", not [g for g in d["goals"] if g["name"] == "Broken"])
+    check("no JS errors in the measurable flow", not merr, merr)
+    ctx.close()
+
+    # ---------- 3k. missed-days level penalty ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    page.clock.install(time=datetime.datetime(2026, 9, 13, 9, 0, 0, tzinfo=ROME))
+    page.goto(URL); page.wait_for_selector(".hero")
+    # 730 XP: level 5 (700) plus a 30-XP day three days ago. Empty: 6-9 Sep and 11-12 Sep.
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.log.push({id:'a',type:'habit',refId:'h3',name:'Study 2 hours',xp:700,date:'2026-09-05',at:1});
+        s.log.push({id:'b',type:'habit',refId:'h3',name:'Study 2 hours',xp:30,date:'2026-09-10',at:2});
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    pens = sorted([e for e in d["log"] if e["type"] == "penalty"], key=lambda e: e["date"])
+    check("each pair of quiet days costs a level, on the 2nd and 4th day of a run",
+          [p["date"] for p in pens] == ["2026-09-07", "2026-09-09", "2026-09-12"], [p["date"] for p in pens])
+    check("each drop lands exactly on the previous level's floor (730->450->250->100)",
+          [p["xp"] for p in pens] == [-280, -200, -150] and sum(e["xp"] for e in d["log"]) == 100, pens)
+    check("hero shows the demoted level", "Level 2" in page.inner_text(".lvl"))
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("reconciling again adds nothing (idempotent)",
+          len([e for e in d["log"] if e["type"] == "penalty"]) == 3)
+    # backfilling a habit onto a punished day takes that penalty back
+    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".day[data-act=pick][data-id='2026-09-07']").click(); page.wait_for_timeout(60)
+    check("penalty visible on its day, not removable",
+          "level down" in page.inner_text("#view")
+          and page.locator(".entry", has_text="without logging").locator("button[data-act=rm-entry]").count() == 0)
+    page.select_option("#f-cal-habit", label="Read 20 minutes (+10)")
+    page.locator("button[data-act=log-day]").click(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("backfilling the quiet day lifts its penalty",
+          [e["date"] for e in d["log"] if e["type"] == "penalty"] == ["2026-09-09", "2026-09-12"])
+    # yesterday holds only a penalty entry, which must not count as an active day
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    check("streak ignores penalty entries", "No streak yet" in page.inner_text(".streak"), page.inner_text(".streak"))
+    ctx.close()
+
+    # ---------- 3l. live reminder banner + personal heatmap scale ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    page.clock.install(time=datetime.datetime(2026, 9, 8, 14, 59, 30, tzinfo=ROME))
+    page.goto(URL); page.wait_for_selector(".hero")
+    check("no banner just before the reminder time", "reminder." not in page.inner_text("#view"))
+    page.clock.run_for(2 * 60 * 1000)   # cross 15:00 with the app open, no taps
+    page.wait_for_timeout(150)
+    check("banner appears on its own when the time passes",
+          "15:00 reminder" in page.inner_text("#view"), page.inner_text("#view")[:300])
+    # heatmap scales to your own recent best instead of fixed thresholds
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.log.push({id:'x1',type:'habit',refId:'h3',name:'Study 2 hours',xp:700,date:'2026-09-05',at:1});
+        s.log.push({id:'x2',type:'habit',refId:'h4',name:'Read 20 minutes',xp:30,date:'2026-09-06',at:2});
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    check("a 700-XP day is full intensity, a 30-XP day stays light against it",
+          page.locator(".day[data-id='2026-09-05']").get_attribute("data-l") == "3"
+          and page.locator(".day[data-id='2026-09-06']").get_attribute("data-l") == "1",
+          (page.locator(".day[data-id='2026-09-05']").get_attribute("data-l"),
+           page.locator(".day[data-id='2026-09-06']").get_attribute("data-l")))
+    ctx.close()
+
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()

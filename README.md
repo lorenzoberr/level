@@ -68,7 +68,7 @@ do work:
 
 ## How it works
 
-Five tabs along the bottom, each with one job:
+Six tabs along the bottom, each with one job:
 
 - **Home** — the daily loop. Tick habits, tick today's goals, log your weight,
   see what's still owed. Goals left unfinished from earlier days show here
@@ -79,7 +79,9 @@ Five tabs along the bottom, each with one job:
 - **Sections** — one box per section (Fitness, School, ...), with its habits
   and its objectives together inside it. Add and edit everything here; the
   form opens inside the box it belongs to.
-- **Calendar** — the month at a glance. Tap a day to see or fix it.
+- **Calendar** — the month at a glance, shaded against your own recent best
+  rather than fixed numbers, so the map keeps contrast as your XP grows. Tap
+  a day to see or fix it.
 - **Progress** — the report card. Day, Week or Month: XP earned against the
   pace your target asks for, a verdict in plain words, a bar per day, what
   went well, and what slipped — named kindly, with counts.
@@ -128,3 +130,20 @@ Five tabs along the bottom, each with one job:
 - Editing a habit's XP does not rewrite past entries; history stays as it was.
   Editing a completed objective's XP does update its one entry, so the total
   stays consistent.
+
+## Measurable objectives
+
+Give an objective a current number, a target and a unit (say 72.5 → 80 kg)
+and its row grows a progress bar. Update the current number from Edit as you
+go; reaching the target completes the objective by itself and pays the XP —
+the deadline rule still applies. Downward targets work too (55 min → 50).
+
+## Two quiet days cost a level
+
+Go two consecutive days without logging anything and the app takes a level:
+a red entry in the calendar drops your total to the start of the previous
+level. Four quiet days cost two, and so on. It is never silent — you get a
+toast, the calendar shows it, and Progress lists it. Honestly forgot to log
+a day you actually did something? Backfill the habit from the calendar and
+the penalty lifts itself. Only the last 30 days are ever judged, and logging
+just your weight does not count — the rule is about the habits.

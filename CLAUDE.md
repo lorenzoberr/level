@@ -45,6 +45,22 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     (`goalAward()`), snapshotted into the single log entry. Editing a
     completed objective re-judges its entry against the current deadline
     using the day it was actually completed.
+  - Measurable objectives: `mStart`/`mCur`/`mTarget`/`mUnit` (`mTarget` null =
+    not measurable). `mStart` anchors the progress bar and is set when the
+    objective first becomes measurable, never on later edits. Works in both
+    directions (82→90 kg up, 55→50 min down); `goalReached()` decides by
+    which side of `mStart` the target sits. Updating `mCur` past the target
+    in `saveGoal()` auto-completes through the normal `completeGoal()` path,
+    so the deadline half-XP rule still applies.
+  - `penalty` log entries: two consecutive days with nothing logged cost a
+    level. `reconcilePenalties()` (called at boot, on day rollover, and after
+    any past-day log mutation) derives expected penalty days — the 2nd, 4th,
+    … day of each unlogged run — inside a 30-day window, drops penalties whose
+    days were since backfilled, and adds missing ones with the amount that
+    lands the total exactly on the previous level's floor, snapshotted and
+    never recomputed. Penalties are derived like bonuses: `undoLast()` skips
+    them, the calendar shows them (red, "level down") with no Remove button,
+    and `streak()` ignores them. Weight entries do not count as logging.
   - `tasks`: daily goals tied to a `date`; overdue ones surface on Home.
   - `log`: XP entries `{type: habit|goal|task|bonus, refId, name, xp, date, at}`. Total XP
     is always the sum of `log`. `done` flags are re-derived from the log in `normalise()`.
@@ -116,8 +132,7 @@ The URL must never change after install: data is tied to the origin.
 1. Streak freeze (the other loss signals now live in the Progress tab and
    `weeklyDue()`).
 2. Daily cap for repeatable habits.
-3. Measurable objectives (current / target number).
-4. Real push notifications would need a small server (e.g. Cloudflare Worker
+3. Real push notifications would need a small server (e.g. Cloudflare Worker
    with VAPID + cron). Only if explicitly requested; it moves data off the phone.
 
 `backupOverdue()` drives the Home nudge: 14 days since `lastBackup`, counted

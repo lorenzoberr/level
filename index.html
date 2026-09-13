@@ -196,6 +196,10 @@
   .row .sub .pips i{width:7px;height:7px;border-radius:50%;background:var(--line-2);display:block}
   .row .sub .due{color:var(--gold-deep);font-weight:600}
   .row .sub .met{color:var(--green);font-weight:600}
+  /* measurable objectives: a small progress bar inline in the sub line */
+  .row .sub .gbar{display:inline-block;width:56px;height:6px;border-radius:99px;background:var(--seg-bg);
+    overflow:hidden;vertical-align:1px;margin-right:7px;position:relative}
+  .row .sub .gbar i{position:absolute;top:0;bottom:0;left:0;border-radius:99px;display:block}
 
   .empty{padding:22px 16px;border:1px dashed var(--line-2);border-radius:var(--r);
     text-align:center;color:var(--muted);font-size:14px;line-height:1.5;background:transparent}
@@ -448,6 +452,10 @@ const clampInt=(v,lo,hi)=>{const n=parseInt(v,10);return Number.isFinite(n)?Math
 const intIn=(v,lo,hi)=>{const t=String(v??'').trim();if(!/^-?\d+$/.test(t))return null;const n=parseInt(t,10);return n>=lo&&n<=hi?n:null;}; // validate user input
 // Weights come from the iPhone decimal pad, which types a comma on an Italian
 // keyboard. 20-300 kg, kept to one decimal.
+// General decimal input (comma or dot), for measurable objectives: 0-1,000,000, one decimal kept.
+const decIn=(v,lo,hi)=>{const t=String(v??'').trim().replace(',','.');
+  if(!/^\d{1,7}(\.\d{1,2})?$/.test(t)) return null;
+  const n=parseFloat(t); return n>=lo&&n<=hi?Math.round(n*10)/10:null;};
 const kgIn=v=>{const t=String(v??'').trim().replace(',','.');
   if(!/^\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
   const n=parseFloat(t); return n>=20&&n<=300?Math.round(n*10)/10:null;};
@@ -498,9 +506,9 @@ function seed(){
       {id:'h5',name:'Sleep before midnight',xp:15,mode:'daily',perWeek:3,bonus:0,cat:c3}
     ],
     goals:[
-      {id:'g1',name:'Bench press bodyweight',xp:300,cat:c1,deadline:null,done:false,doneDate:null},
-      {id:'g2',name:'Run 10k under 50 min',xp:250,cat:c1,deadline:null,done:false,doneDate:null},
-      {id:'g3',name:'Finish coursework draft',xp:200,cat:c2,deadline:null,done:false,doneDate:null}
+      {id:'g1',name:'Bench press bodyweight',xp:300,cat:c1,deadline:null,mStart:null,mCur:null,mTarget:null,mUnit:'',done:false,doneDate:null},
+      {id:'g2',name:'Run 10k under 50 min',xp:250,cat:c1,deadline:null,mStart:null,mCur:null,mTarget:null,mUnit:'',done:false,doneDate:null},
+      {id:'g3',name:'Finish coursework draft',xp:200,cat:c2,deadline:null,mStart:null,mCur:null,mTarget:null,mUnit:'',done:false,doneDate:null}
     ],
     tasks:[],
     log:[],
@@ -543,8 +551,23 @@ function normalise(d){
     id:String(g.id||uid()),name:String(g.name||'Untitled').slice(0,60),
     xp:clampInt(g.xp,1,100000)||100,cat:fixCat(g.cat),
     deadline:isValidISO(g.deadline)?g.deadline:null,   // optional; late completion pays half
+    // measurable objectives: a start, current and target number plus a unit.
+    // mTarget null means not measurable; mStart anchors the progress bar.
+    mStart:(v=>Number.isFinite(v)?Math.round(v*10)/10:null)(parseFloat(g.mStart)),
+    mCur:(v=>Number.isFinite(v)?Math.round(v*10)/10:null)(parseFloat(g.mCur)),
+    mTarget:(v=>Number.isFinite(v)?Math.round(v*10)/10:null)(parseFloat(g.mTarget)),
+    mUnit:String(g.mUnit||'').slice(0,8),
     done:!!g.done,
     doneDate:isValidISO(g.doneDate)?g.doneDate:null})):[];
+  // measurable repair: no target means not measurable at all; a lost anchor
+  // or current value is re-anchored so the progress bar stays sane
+  out.goals.forEach(g=>{
+    if(g.mTarget===null){g.mStart=null;g.mCur=null;g.mUnit='';}
+    else{
+      if(g.mCur===null) g.mCur=g.mStart!==null?g.mStart:g.mTarget;
+      if(g.mStart===null) g.mStart=g.mCur;
+    }
+  });
 
   out.tasks=Array.isArray(d.tasks)?d.tasks.filter(t=>t&&typeof t==='object'&&isValidISO(t.date)).map(t=>({
     id:String(t.id||uid()),name:String(t.name||'Untitled').slice(0,80),
@@ -554,7 +577,7 @@ function normalise(d){
     // v1 entries used habitId/goalId; v2 uses type/refId
     const type=e.type||(e.goalId?'goal':'habit');
     const refId=e.refId||e.habitId||e.goalId||null;
-    return {id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':type==='bonus'?'bonus':'habit',refId:refId?String(refId):null,
+    return {id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':type==='bonus'?'bonus':type==='penalty'?'penalty':'habit',refId:refId?String(refId):null,
       name:String(e.name||'Entry').slice(0,60),xp:clampInt(e.xp,-100000,100000)||0,date:e.date,
       at:Number.isFinite(e.at)?e.at:0};
   }):[];
@@ -688,7 +711,9 @@ function weightWeeks(){
     .map(([week,kgs])=>({week,n:kgs.length,avg:kgs.reduce((s,x)=>s+x,0)/kgs.length}));
 }
 function streak(){
-  const days=new Set(state.log.map(e=>e.date));
+  // penalty entries sit on unlogged days by definition - they must not make
+  // a missed day look active
+  const days=new Set(state.log.filter(e=>e.type!=='penalty').map(e=>e.date));
   let n=0,d=todayISO();
   if(!days.has(d)) d=addDays(d,-1);
   while(days.has(d)){n++;d=addDays(d,-1);}
@@ -759,6 +784,56 @@ const daysSinceBackup=()=>dayDiff(state.lastBackup||state.start,todayISO());
 const backupOverdue=()=>state.log.length>0&&daysSinceBackup()>=BACKUP_DAYS;
 
 /* =================================================================
+   MISSED-DAYS PENALTY
+   Two consecutive days with nothing logged cost a level: a negative
+   entry that drops the total to the floor of the previous level, so
+   the total is still always the sum of the log. Rules that keep it
+   fair: it is always visible (calendar entry, toast), it only judges
+   the last 30 days (a long holiday cannot erase ten levels), only
+   whole days already over are judged, and backfilling a forgotten
+   habit for those days takes the penalty back. Amounts are
+   snapshotted when applied and never recomputed. Weight entries do
+   not count as logging - the rule is about the habits.
+================================================================== */
+const PENALTY_WINDOW=30;
+function reconcilePenalties(){
+  const t=todayISO();
+  const nonPen=state.log.filter(e=>e.type!=='penalty');
+  if(!nonPen.length) return 0;                       // nothing begun, nothing owed
+  const first=nonPen.reduce((m,e)=>e.date<m?e.date:m,t);
+  const cut=addDays(t,-PENALTY_WINDOW);
+  const from=cut>first?cut:first;
+  const active=new Set(nonPen.map(e=>e.date));
+  // the 2nd, 4th, ... day of every unlogged run inside the window owes a level
+  const expected=new Set();
+  let run=0;
+  for(let d=from;d<t;d=addDays(d,1)){
+    if(active.has(d)){run=0;continue;}
+    if(++run%2===0) expected.add(d);
+  }
+  let changed=false,applied=0;
+  // a penalty whose days were since backfilled is no longer deserved
+  state.log=state.log.filter(e=>{
+    if(e.type!=='penalty'||e.date<from) return true;
+    if(expected.has(e.date)) return true;
+    changed=true; return false;
+  });
+  const have=new Set(state.log.filter(e=>e.type==='penalty').map(e=>e.date));
+  for(const d of [...expected].sort()){
+    if(have.has(d)) continue;
+    const L=levelInfo(totalXP()).level;
+    if(L<2) continue;                                // nowhere further to fall
+    const amt=totalXP()-xpForLevel(L-1);
+    if(amt<=0) continue;
+    state.log.push({id:uid(),type:'penalty',refId:null,
+      name:'Two days without logging',xp:-amt,date:d,at:Date.now()});
+    changed=true;applied++;
+  }
+  if(changed) save();
+  return applied;
+}
+
+/* =================================================================
    TOAST + CHARACTER FEEDBACK
 ================================================================== */
 let toastT;
@@ -814,6 +889,7 @@ function logHabit(id,iso){
     return;
   }
   state.log.push({id:uid(),type:'habit',refId:id,name:h.name,xp:h.xp,date:iso,at:Date.now()});
+  if(iso!==todayISO()) reconcilePenalties();          // backfilling can lift a level penalty
   const bonus=h.mode==='weekly'?reconcileWeek(id,iso):null;
   save();afterXPChange();render();
   if(charAnim==='pop') return;                       // the level-up toast already fired
@@ -823,20 +899,27 @@ function logHabit(id,iso){
 // Half XP once an objective's deadline has passed: the goal was to do it by
 // then. ISO strings compare correctly, so plain > is a date comparison.
 const goalAward=(g,iso)=>g.deadline&&iso>g.deadline?Math.round(g.xp/2):g.xp;
+// A measurable objective counts as reached when the current number gets to the
+// target from whichever side it started on (82 kg up to 90, or 55 min down to 50).
+const goalReached=g=>g.mTarget!==null&&g.mStart!==null&&g.mCur!==null&&g.mStart!==g.mTarget
+  &&(g.mTarget>g.mStart?g.mCur>=g.mTarget:g.mCur<=g.mTarget);
+const goalProgress=g=>g.mTarget===null||g.mStart===null||g.mStart===g.mTarget?null
+  :Math.max(0,Math.min(1,(g.mCur-g.mStart)/(g.mTarget-g.mStart)));
+function completeGoal(g){
+  const iso=todayISO();
+  const amt=goalAward(g,iso);
+  state.log.push({id:uid(),type:'goal',refId:g.id,name:g.name,xp:amt,date:iso,at:Date.now()});
+  g.done=true;g.doneDate=iso;
+  save();afterXPChange();render();
+  if(charAnim!=='pop') toast(amt<g.xp?'+'+fmt(amt)+' XP — after the deadline':'+'+fmt(amt)+' XP',amt>=g.xp&&g.mTarget!==null);
+}
 function toggleGoal(id){
   const g=state.goals.find(x=>x.id===id); if(!g) return;
   if(g.done){
     state.log=state.log.filter(e=>!(e.type==='goal'&&e.refId===id));
     g.done=false;g.doneDate=null;
     save();afterXPChange();render();toast('Reopened');
-  }else{
-    const iso=todayISO();
-    const amt=goalAward(g,iso);
-    state.log.push({id:uid(),type:'goal',refId:id,name:g.name,xp:amt,date:iso,at:Date.now()});
-    g.done=true;g.doneDate=iso;
-    save();afterXPChange();render();
-    if(charAnim!=='pop') toast(amt<g.xp?'+'+fmt(amt)+' XP — after the deadline':'+'+fmt(amt)+' XP');
-  }
+  }else completeGoal(g);
 }
 function removeEntry(entryId){
   const e=state.log.find(x=>x.id===entryId); if(!e) return;
@@ -845,12 +928,14 @@ function removeEntry(entryId){
   if(e.type==='task'){const t=state.tasks.find(x=>x.id===e.refId);if(t)t.done=false;}
   // dropping a session can take the week back under its target
   if(e.type==='habit') reconcileWeek(e.refId,e.date);
+  // and emptying a past day entirely can earn a level penalty
+  if(e.date!==todayISO()) reconcilePenalties();
   save();afterXPChange();render();toast('Removed '+e.name);
 }
 function undoLast(){
-  // bonuses are derived from the sessions, so undo steps over them: removing
-  // the session that earned one takes the bonus with it.
-  const undoable=state.log.filter(e=>e.type!=='bonus');
+  // bonuses and penalties are derived, so undo steps over them: undo the
+  // entries that caused them instead.
+  const undoable=state.log.filter(e=>e.type!=='bonus'&&e.type!=='penalty');
   if(!undoable.length) return toast('Nothing to undo');
   const last=undoable.sort((a,b)=>b.at-a.at)[0];
   removeEntry(last.id);
@@ -881,10 +966,12 @@ function toggleTask(id){
   if(t.done){
     state.log=state.log.filter(e=>!(e.type==='task'&&e.refId===id));
     t.done=false;
+    if(t.date!==todayISO()) reconcilePenalties();
     save();afterXPChange();render();toast('Reopened');
   }else{
     state.log.push({id:uid(),type:'task',refId:id,name:t.name,xp:t.xp,date:t.date,at:Date.now()});
     t.done=true;
+    if(t.date!==todayISO()) reconcilePenalties();
     save();afterXPChange();render();
     if(charAnim!=='pop') toast('+'+t.xp+' XP');
   }
@@ -1038,24 +1125,40 @@ function saveGoal(){
   const xp=intIn(document.getElementById('f-g-xp').value,1,100000);
   const cat=document.getElementById('f-g-cat').value;
   const dRaw=(document.getElementById('f-g-deadline')||{}).value||'';
+  const tRaw=((document.getElementById('f-g-mtarget')||{}).value||'').trim();
+  const cRaw=((document.getElementById('f-g-mcur')||{}).value||'').trim();
+  const mUnit=String((document.getElementById('f-g-munit')||{}).value||'').trim().slice(0,8);
   if(!name) return toast('Give it a name');
   if(xp===null) return toast('XP must be a whole number between 1 and 100,000');
   if(dRaw&&!isValidISO(dRaw)) return toast('Pick a valid deadline, or leave it empty');
   const deadline=dRaw||null;
+  let mTarget=null,mCur=null;
+  if(tRaw||cRaw){
+    if(!tRaw||!cRaw) return toast('A measurable objective needs both numbers, or neither');
+    mTarget=decIn(tRaw,0,1000000); mCur=decIn(cRaw,0,1000000);
+    if(mTarget===null||mCur===null) return toast('Numbers between 0 and 1,000,000, decimals allowed');
+    if(mTarget===mCur&&!(editing&&editing.type==='goal')) return toast('Current and target are already the same');
+  }
   if(!state.cats.some(c=>c.id===cat)) return toast('Pick a section');
   if(editing&&editing.type==='goal'){
     const g=state.goals.find(x=>x.id===editing.id);
     if(g){
-      Object.assign(g,{name,xp,cat,deadline});
+      const wasMeasurable=g.mTarget!==null;
+      Object.assign(g,{name,xp,cat,deadline,mTarget,mCur,mUnit:mTarget===null?'':mUnit});
+      // the anchor stays where the journey started; it only (re)sets when the
+      // objective first becomes measurable
+      g.mStart=mTarget===null?null:(wasMeasurable&&g.mStart!==null?g.mStart:mCur);
       // a completed objective's entry follows the edit so the total stays
       // consistent - re-judged against the (possibly new) deadline using the
       // day it was actually completed
       const e=state.log.find(x=>x.type==='goal'&&x.refId===g.id);
       if(e){e.name=name;e.xp=goalAward(g,e.date);}
+      if(!g.done&&goalReached(g)){editing=null;adding=null;completeGoal(g);return;}
     }
     editing=null;adding=null;toast('Objective updated');
   }else{
-    state.goals.push({id:uid(),name,xp,cat,deadline,done:false,doneDate:null});adding=null;toast('Objective added');
+    state.goals.push({id:uid(),name,xp,cat,deadline,mStart:mCur,mCur,mTarget,mUnit:mTarget===null?'':mUnit,done:false,doneDate:null});
+    adding=null;toast('Objective added');
   }
   save();afterXPChange();render();
 }
@@ -1251,7 +1354,10 @@ function goalRow(g,opts){
   let sub;
   if(g.done) sub='Completed '+fmtShort(g.doneDate||'')+'. Tap to reopen.'+(wasLate?' <span class="due">Half XP, after the deadline.</span>':'');
   else{
-    const base=opts.manage?fmt(g.xp)+' XP when done':'Objective';
+    const p=goalProgress(g);
+    const base=p!==null
+      ?`<span class="gbar"><i style="width:${(p*100).toFixed(0)}%;background:${c.color}"></i></span><span class="num">${fmt(g.mCur)} / ${fmt(g.mTarget)}${g.mUnit?' '+esc(g.mUnit):''}</span>`
+      :(opts.manage?fmt(g.xp)+' XP when done':'Objective');
     sub=base+(g.deadline?(lateNow
       ?' &middot; <span class="due">was due '+esc(fmtShort(g.deadline))+', half XP now</span>'
       :' &middot; by '+esc(fmtShort(g.deadline))):'');
@@ -1475,8 +1581,18 @@ function viewTasks(){
     plannedBlock;
 }
 
+// Heatmap intensity relative to your own recent days, so the map keeps its
+// contrast as the XP scale grows instead of everything maxing out.
+function recentDayMax(){
+  const cut=addDays(todayISO(),-59);
+  const m=new Map();
+  for(const e of state.log){ if(e.date>=cut) m.set(e.date,(m.get(e.date)||0)+e.xp); }
+  let mx=0; for(const v of m.values()) if(v>mx) mx=v;
+  return Math.max(60,mx);
+}
 function viewCalendar(){
   const t=todayISO();
+  const basis=recentDayMax();
   const first=new Date(cal.y,cal.m,1);
   const daysInMonth=new Date(cal.y,cal.m+1,0).getDate();
   const lead=(first.getDay()+6)%7;   // Monday-first
@@ -1487,8 +1603,9 @@ function viewCalendar(){
     const iso=cal.y+'-'+pad2(cal.m+1)+'-'+pad2(d);
     const v=xpOn(iso);
     const future=dayDiff(t,iso)>0;
-    if(v>0){monthXP+=v;active++;if(v>best){best=v;bestDay=iso;}}
-    const l=v===0?0:v<25?1:v<60?2:3;
+    monthXP+=v;                    // penalties count against the month, honestly
+    if(v>0){active++;if(v>best){best=v;bestDay=iso;}}
+    const l=v<=0?0:v>=basis*0.7?3:v>=basis*0.35?2:1;
     const planned=future?state.tasks.filter(x=>x.date===iso).length:0;
     cells.push(`<div class="day ${future?'future':''} ${iso===t?'today':''} ${iso===cal.sel?'sel':''}" data-l="${l}" data-act="pick" data-id="${iso}">${d}${v?'<span class="v num">'+fmt(v)+'</span>':(planned?'<span class="v num" style="opacity:1;color:var(--accent)">'+planned+' planned</span>':'')}</div>`);
   }
@@ -1509,12 +1626,13 @@ function viewCalendar(){
     ${selFuture?'':selEntries.length?selEntries.map(e=>{
       const src=e.type==='goal'?state.goals.find(g=>g.id===e.refId):e.type==='task'?state.tasks.find(x=>x.id===e.refId):state.habits.find(h=>h.id===e.refId);
       const col=src?catOf(src.cat).color:'#94A3B8';
-      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?'weekly bonus':'';
-      // a bonus follows its sessions: remove one of those and it goes by itself
+      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?'weekly bonus':e.type==='penalty'?'level down':'';
+      // bonuses and penalties are derived: no Remove of their own. A penalty
+      // goes away by backfilling a habit onto its two quiet days.
       return `<div class="entry"><span class="edge" style="background:${col}"></span>
         <span class="n">${esc(e.name)}${tag?' <span style="color:var(--muted);font-size:12px">'+tag+'</span>':''}</span>
-        <span class="x num">+${fmt(e.xp)}</span>
-        ${e.type==='bonus'?'':`<button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button>`}</div>`;
+        <span class="x num"${e.xp<0?' style="color:var(--red)"':''}>${e.xp<0?'&minus;'+fmt(-e.xp):'+'+fmt(e.xp)}</span>
+        ${e.type==='bonus'||e.type==='penalty'?'':`<button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button>`}</div>`;
     }).join(''):`<div class="empty">Nothing logged on this day.</div>`}
     ${selFuture?'':tasksBlock}
     ${selFuture||!state.habits.length?'':`
@@ -1583,6 +1701,12 @@ function goalFormHTML(ed,presetCat){
     </div>
     <div class="field"><label for="f-g-deadline">Deadline (optional)</label><input id="f-g-deadline" type="date" value="${ed&&ed.deadline?ed.deadline:''}"></div>
     <div style="font-size:12.5px;color:var(--muted);margin:-4px 0 10px">Finish by the deadline for the full XP; after it, half. Leave empty for no deadline.</div>
+    <div class="two">
+      <div class="field"><label for="f-g-mcur">Current (optional)</label><input id="f-g-mcur" inputmode="decimal" placeholder="72.5" autocomplete="off" value="${ed&&ed.mCur!==null?ed.mCur:''}"></div>
+      <div class="field"><label for="f-g-mtarget">Target</label><input id="f-g-mtarget" inputmode="decimal" placeholder="80" autocomplete="off" value="${ed&&ed.mTarget!==null?ed.mTarget:''}"></div>
+    </div>
+    <div class="field"><label for="f-g-munit">Unit</label><input id="f-g-munit" placeholder="kg" maxlength="8" autocomplete="off" value="${ed?esc(ed.mUnit||''):''}"></div>
+    <div style="font-size:12.5px;color:var(--muted);margin:-4px 0 10px">Give it numbers and the row grows a progress bar. Update the current number here as you go; reaching the target completes the objective by itself. Works downwards too (55 min &rarr; 50).</div>
     <div class="inline"><button class="btn primary" data-act="save-goal">${ed?'Save changes':'Add objective'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
   </div>`;
 }
@@ -1650,7 +1774,8 @@ function progressBarsSVG(from,end,perDay){
   days.forEach((d,i)=>{
     const x=(4+i*((W-8)/days.length)).toFixed(1);
     if(vals[i]===null){ s+=`<rect x="${x}" y="${H-B-1.5}" width="${bw.toFixed(1)}" height="1.5" rx="0.75" style="fill:var(--line-2)"/>`; return; }
-    const h=Math.max(vals[i]>0?3:1.5,(H-T-B)*vals[i]/top);
+    const v=Math.max(0,vals[i]);       // a penalty day draws as empty, not upside down
+    const h=Math.max(v>0?3:1.5,(H-T-B)*v/top);
     s+=`<rect x="${x}" y="${(H-B-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" style="fill:${d===t?'var(--gold)':'var(--accent)'}"/>`;
   });
   if(perDay>0){
@@ -1737,6 +1862,8 @@ function viewProgress(){
         if(weeks>0&&hit<weeks) watch.push(`<b>${esc(h.name)}</b>: hit ${hit} of ${weeks} full week${weeks===1?'':'s'} ${label}`);
       }
     });
+    state.log.filter(e=>e.type==='penalty'&&inRange(e)).forEach(e=>
+      watch.push(`<b>Level lost</b> on ${esc(fmtShort(e.date))}: two days with nothing logged (${fmt(e.xp)} XP)`));
     const missedTasks=state.tasks.filter(x=>!x.done&&x.date>=from&&x.date<=missEnd);
     if(missedTasks.length) watch.push(`<b>${missedTasks.length} daily goal${missedTasks.length===1?'':'s'}</b> still unfinished: ${missedTasks.slice(0,3).map(x=>esc(x.name)).join(', ')}${missedTasks.length>3?'&hellip;':''} - waiting under Tasks`);
   }
@@ -1899,6 +2026,7 @@ document.addEventListener('keydown',e=>{
 
 // When the app comes back after midnight, "today" must move on.
 let renderedDay=todayISO();
+const penaltyToast=n=>toast(n===1?'Two quiet days — down a level':n+' levels lost to quiet days');
 function checkDayRollover(){
   const t=todayISO();
   if(t!==renderedDay){
@@ -1906,16 +2034,31 @@ function checkDayRollover(){
     renderedDay=t;
     if(wasYesterday) cal.sel=t;
     cal.y=new Date().getFullYear();cal.m=new Date().getMonth();
+    const n=reconcilePenalties();
+    if(n) lastLevel=levelInfo(totalXP()).level;
     render();
+    if(n) penaltyToast(n);
   }
+}
+// The minute tick also lets the reminder banner appear on its own the moment
+// a reminder time passes, instead of waiting for the next tap.
+let lastTickHM=pad2(new Date().getHours())+':'+pad2(new Date().getMinutes());
+function minuteTick(){
+  checkDayRollover();
+  const now=new Date(),hm=pad2(now.getHours())+':'+pad2(now.getMinutes());
+  if(tab==='home'&&state.reminders.times.some(x=>x>lastTickHM&&x<=hm)) render();
+  lastTickHM=hm;
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDayRollover();else updateBadge();});
 window.addEventListener('focus',checkDayRollover);
 window.addEventListener('pageshow',checkDayRollover);
-setInterval(checkDayRollover,60000);
+setInterval(minuteTick,60000);
 
 applyTheme();
+const bootPenalties=reconcilePenalties();
+if(bootPenalties) lastLevel=levelInfo(totalXP()).level;
 render();
+if(bootPenalties) penaltyToast(bootPenalties);
 
 if('serviceWorker' in navigator){
   try{navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}
