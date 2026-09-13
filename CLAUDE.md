@@ -27,8 +27,17 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Architecture (index.html)
 
-- State: `{cats, habits, goals, tasks, log, target, deadline, start, reminders,
-  theme, hideDone, penaltyPaused, penaltyFrom, lastBackup, weight, lastTaskCat}`.
+- State: `{setup, name, cats, habits, goals, tasks, log, target, deadline,
+  start, reminders, theme, hideDone, penaltyPaused, penaltyFrom, lastBackup,
+  weight, lastTaskCat}`.
+  - **Fresh installs are empty.** `seed()` ships no habits, goals or entries -
+    one placeholder section only (the code assumes at least one cat). With
+    `setup:false`, `render()` shows the first-open welcome flow instead of the
+    tabs: name, first section + colour, XP target/deadline, optional weight
+    goal; finishing lands in Sections with the habit form open. Data without
+    a `setup` field is treated as an established install and never sees the
+    flow; "Reset everything" returns to it. `name` shows in the hero and is
+    editable under Settings > You.
   - `weight`: `{goal, entries:[{date, kg}]}` — deliberately outside the XP
     system: no `log` entries, no badge, no pending count. One entry per day
     (logging again the same day corrects it), 20-300 kg, one decimal; `kgIn()`
@@ -114,7 +123,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 237 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 246 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.
@@ -122,7 +131,9 @@ Run it after every change. Add a check for every bug you fix.
 The suite RUNS on the owner's machine: Python 3.12 with `pip install
 playwright tzdata` (tzdata is required - Windows Python has no system zone
 data) and `python -m playwright install chromium`. First full pass: 13 Sep
-2026, 237 checks, 0 failures. `serve.ps1` (PowerShell, no dependencies)
+2026, 0 failures (246 checks as of the fresh-install rework). Feature tests
+inject the classic demo fixture (see `DEMO` in the test file) because the app
+itself now installs empty. `serve.ps1` (PowerShell, no dependencies)
 serves the folder on `http://localhost:8765/` for eyeballing changes; service
 workers do not register against it - use the real host for offline checks.
 

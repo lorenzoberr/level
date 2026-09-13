@@ -137,6 +137,7 @@
     box-shadow:0 10px 28px -12px rgba(30,64,175,.55)}
   .hero-row{display:flex;align-items:center;gap:14px}
   .hero-text{flex:1;min-width:0}
+  .hero .hname{font-size:13.5px;font-weight:700;opacity:.95;letter-spacing:.01em}
   .hero .lvl{font-size:14px;font-weight:600;opacity:.92}
   .hero .lvl span{opacity:.75;font-weight:500}
   .hero .total{font-size:54px;line-height:1;font-weight:800;letter-spacing:-0.045em;margin:6px 0 2px}
@@ -492,29 +493,23 @@ const tierName=L=>TIERS.find(t=>L>=t[0])[1];
 const KEY='level.v2', LEGACY='level.v1', BROKEN='level.broken';
 let persists=true, memoryState=null;
 
+// A fresh install is genuinely empty: no demo habits, sections, objectives or
+// entries. The first open shows the setup screen (setup:false), which names
+// the owner, their first section and their target; the one placeholder
+// section below only exists because the rest of the code assumes at least one.
 function seed(){
-  const c1='c-fit',c2='c-school',c3='c-personal';
+  const y=new Date().getFullYear();
   return {
     v:2,
-    cats:[{id:c1,name:'Fitness',color:'#22C55E'},{id:c2,name:'School',color:'#3B82F6'},{id:c3,name:'Personal',color:'#8B5CF6'}],
-    // perWeek/bonus only bite in mode 'weekly', but every habit carries them
-    // so the shape here matches what normalise() produces
-    habits:[
-      {id:'h1',name:'Gym session',xp:50,mode:'multi',perWeek:3,bonus:0,cat:c1},
-      {id:'h2',name:'8k steps',xp:20,mode:'daily',perWeek:3,bonus:0,cat:c1},
-      {id:'h3',name:'Study 2 hours',xp:30,mode:'daily',perWeek:3,bonus:0,cat:c2},
-      {id:'h4',name:'Read 20 minutes',xp:10,mode:'daily',perWeek:3,bonus:0,cat:c3},
-      {id:'h5',name:'Sleep before midnight',xp:15,mode:'daily',perWeek:3,bonus:0,cat:c3}
-    ],
-    goals:[
-      {id:'g1',name:'Bench press bodyweight',xp:300,cat:c1,deadline:null,mStart:null,mCur:null,mTarget:null,mUnit:'',done:false,doneDate:null},
-      {id:'g2',name:'Run 10k under 50 min',xp:250,cat:c1,deadline:null,mStart:null,mCur:null,mTarget:null,mUnit:'',done:false,doneDate:null},
-      {id:'g3',name:'Finish coursework draft',xp:200,cat:c2,deadline:null,mStart:null,mCur:null,mTarget:null,mUnit:'',done:false,doneDate:null}
-    ],
+    setup:false,             // the first-open setup has not run yet
+    name:'',
+    cats:[{id:'c1',name:'My habits',color:PALETTE[0]}],
+    habits:[],
+    goals:[],
     tasks:[],
     log:[],
     target:10000,
-    deadline:'2026-12-31',
+    deadline:localISO(new Date(y,11,31)),
     start:todayISO(),
     reminders:{times:['15:00','18:00','21:00'],badge:true},
     theme:'auto',            // 'auto' follows the phone, or force 'light'/'dark'
@@ -525,7 +520,7 @@ function seed(){
     // weight rides outside the XP system entirely: no log entries, no badge.
     // One entry per day; the chart plots each Monday-Sunday week's average.
     weight:{goal:null,entries:[]},
-    lastTaskCat:c2
+    lastTaskCat:'c1'
   };
 }
 
@@ -632,6 +627,10 @@ function normalise(d){
   out.hideDone=!!d.hideDone;
   out.penaltyPaused=!!d.penaltyPaused;
   out.penaltyFrom=isValidISO(d.penaltyFrom)?d.penaltyFrom:null;
+  // data from before the setup screen existed belongs to someone already
+  // using the app: never show them the welcome flow
+  out.setup=d.setup===undefined?true:!!d.setup;
+  out.name=String(d.name||'').slice(0,30);
   out.lastBackup=isValidISO(d.lastBackup)?d.lastBackup:null;
   out.lastTaskCat=fixCat(d.lastTaskCat);
   return out;
@@ -1246,8 +1245,10 @@ function importData(input){
   input.value='';
 }
 function resetAll(){
-  if(!confirm('Delete every logged entry and put the sections, habits and objectives back to the starting set? This cannot be undone.')) return;
-  state=seed();state.log=[];save();lastLevel=1;editing=null;render();toast('Reset');
+  if(!confirm('Delete absolutely everything and start the app as new? This cannot be undone.')) return;
+  state=seed();save();
+  lastLevel=1;editing=null;adding=null;pickedColor=PALETTE[0];tab='home';
+  render();                                   // setup is false again: the welcome flow returns
 }
 
 /* =================================================================
@@ -1307,6 +1308,7 @@ function heroHTML(){
   return `<div class="hero">
     <div class="hero-row">
       <div class="hero-text">
+        ${state.name?`<div class="hname">${esc(state.name)}</div>`:''}
         <div class="lvl">Level ${L.level} <span>&middot; ${tierName(L.level)}</span></div>
         <div class="total num">${fmt(xp)}</div>
         <div class="totlab">total XP</div>
@@ -1910,8 +1912,70 @@ function viewProgress(){
     ${watch.length?watch.map(w=>item('watch',w)).join(''):item('win','Nothing slipped '+label+'. Clean sheet.')}`;
 }
 
+/* =================================================================
+   FIRST-OPEN SETUP
+   Shown once, before anything else: the app starts genuinely empty,
+   so the owner names themselves, their first section and their
+   target, then goes straight to building their first habit.
+================================================================== */
+function viewSetup(){
+  const y=new Date().getFullYear();
+  return `<div class="hero" style="text-align:center;padding-top:26px">
+      <div class="char" style="margin:0 auto">${characterSVG(1)}</div>
+      <div class="total" style="font-size:32px;margin-top:10px">Welcome to Level</div>
+      <div class="totlab" style="opacity:.9">Habits in. XP out. Levels up.</div>
+    </div>
+    <div class="form"><h3>About you</h3>
+      <div class="field"><label for="f-su-name">Your name</label><input id="f-su-name" maxlength="30" placeholder="Lorenzo" autocomplete="off"></div>
+      <div class="field"><label for="f-su-cat">Your first section</label><input id="f-su-cat" maxlength="40" value="Fitness" autocomplete="off"></div>
+      <div class="field"><label>Its colour</label><div class="swatches">${PALETTE.map(p=>`<button class="sw" style="background:${p}" data-act="color" data-id="${p}" aria-pressed="${pickedColor===p}" aria-label="${p}"></button>`).join('')}</div></div>
+      <div style="font-size:12.5px;color:var(--muted)">Sections group your habits and objectives - School, Personal and the rest can join later.</div>
+    </div>
+    <div class="form"><h3>Your target</h3>
+      <div class="two">
+        <div class="field"><label for="f-su-target">XP to earn</label><input id="f-su-target" type="number" inputmode="numeric" min="1" step="1" value="10000"></div>
+        <div class="field"><label for="f-su-deadline">By when</label><input id="f-su-deadline" type="date" value="${localISO(new Date(y,11,31))}"></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted)">No idea yet? Keep the defaults - everything here changes any time under Settings.</div>
+    </div>
+    <div class="form"><h3>Weight goal (optional)</h3>
+      <div class="field"><label for="f-su-weight">Goal weight (kg)</label><input id="f-su-weight" inputmode="decimal" placeholder="70,0" autocomplete="off"></div>
+      <button class="btn primary" data-act="finish-setup">Start levelling</button>
+    </div>
+    <div class="whint" style="text-align:center;margin-bottom:20px">Next stop: your first habit, its XP, and what it is worth to you.</div>`;
+}
+function finishSetup(){
+  const name=(document.getElementById('f-su-name').value||'').trim().slice(0,30);
+  const catName=(document.getElementById('f-su-cat').value||'').trim().slice(0,40);
+  const target=intIn(document.getElementById('f-su-target').value,1,100000000);
+  const dl=document.getElementById('f-su-deadline').value;
+  const wRaw=(document.getElementById('f-su-weight').value||'').trim();
+  if(!name){toast('Tell it your name first');const el=document.getElementById('f-su-name');if(el)el.focus();return;}
+  if(!catName) return toast('Name your first section');
+  if(target===null) return toast('Target must be a whole number, 1 or more');
+  if(!isValidISO(dl)||dayDiff(todayISO(),dl)<=0) return toast('Pick a deadline after today');
+  let wg=null;
+  if(wRaw){wg=kgIn(wRaw);if(wg===null) return toast('Weight goal between 20 and 300 kg, or leave it empty');}
+  state.name=name;
+  state.cats=[{id:uid(),name:catName,color:pickedColor}];
+  state.lastTaskCat=state.cats[0].id;
+  state.target=target;state.deadline=dl;state.start=todayISO();
+  state.weight.goal=wg;
+  state.setup=true;
+  save();
+  // straight into building: Sections tab, habit form already open
+  tab='sections';editing=null;adding={type:'habit',cat:state.cats[0].id};
+  render();window.scrollTo(0,0);
+  const el=document.getElementById('f-h-name');if(el)el.focus();
+  toast('Welcome, '+name);
+}
+
 function viewSettings(){
-  return `<div class="form"><h3>Target</h3>
+  return `<div class="form"><h3>You</h3>
+      <div class="field"><label for="f-name">Name</label><input id="f-name" value="${esc(state.name)}" maxlength="30" autocomplete="off"></div>
+      <button class="btn primary" data-act="save-name">Save name</button>
+    </div>
+    <div class="form"><h3>Target</h3>
       <div class="field"><label for="f-target">XP goal</label><input id="f-target" type="number" inputmode="numeric" min="1" step="1" value="${state.target}"></div>
       <div class="two">
         <div class="field"><label for="f-start">Counting from</label><input id="f-start" type="date" value="${state.start}"></div>
@@ -1971,6 +2035,13 @@ function viewSettings(){
 ================================================================== */
 function render(){
   document.getElementById('today').textContent=fmtLong(todayISO());
+  const tabsEl=document.querySelector('.tabs');
+  if(!state.setup){                    // first open: the welcome flow, nothing else
+    tabsEl.classList.add('hidden');
+    document.getElementById('view').innerHTML=viewSetup();
+    return;
+  }
+  tabsEl.classList.remove('hidden');
   const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,progress:viewProgress,settings:viewSettings}[tab]||viewHome;
   document.getElementById('view').innerHTML=v();
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===tab?'true':'false'));
@@ -1981,6 +2052,8 @@ const ACTIONS={
   tab:id=>{tab=id;editing=null;adding=null;render();window.scrollTo(0,0);},
   prog:id=>{prog=id==='day'||id==='month'?id:'week';render();},
   'toggle-done':()=>{state.hideDone=!state.hideDone;save();render();},
+  'finish-setup':()=>finishSetup(),
+  'save-name':()=>{const v=(document.getElementById('f-name')||{value:''}).value.trim().slice(0,30);state.name=v;save();render();toast(v?'Saved, '+v:'Name cleared');},
   'go-tasks':()=>{tab='tasks';editing=null;adding=null;render();window.scrollTo(0,0);const el=document.getElementById('f-t-name');if(el)el.focus();},
   log:id=>logHabit(id),
   goal:id=>toggleGoal(id),

@@ -21,6 +21,14 @@ Alternative: drag this folder onto app.netlify.com/drop. Instant, random URL.
 
 Either way you get HTTPS, which the offline cache requires.
 
+## First open
+
+The app arrives empty - no example habits, no pre-filled anything. The first
+time it opens it asks your name, your first section and its colour, your XP
+target and deadline, and (optionally) a weight goal, then drops you straight
+into building your first habit. Everything it asks for can be changed later
+under Settings. You only ever see this once; restoring a backup skips it.
+
 ## Install on the iPhone
 
 1. Open the URL in **Safari**. Only Safari can add to the home screen.

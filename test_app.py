@@ -27,6 +27,30 @@ def check(name, cond, extra=""):
     print(("PASS " if cond else "FAIL ") + name + (("  -> " + str(extra)) if (extra and not cond) else ""))
     if not cond: fails.append(name)
 
+# The app installs empty behind a first-open setup screen. Tests that exercise
+# features inject this classic fixture (setup already completed), mirroring an
+# install that is actually in use; normalise() fills every field not listed.
+DEMO = """() => localStorage.setItem('level.v2', JSON.stringify({
+  setup: true,
+  cats: [{id:'c-fit',name:'Fitness',color:'#22C55E'},
+         {id:'c-school',name:'School',color:'#3B82F6'},
+         {id:'c-personal',name:'Personal',color:'#8B5CF6'}],
+  habits: [{id:'h1',name:'Gym session',xp:50,mode:'multi',cat:'c-fit'},
+           {id:'h2',name:'8k steps',xp:20,mode:'daily',cat:'c-fit'},
+           {id:'h3',name:'Study 2 hours',xp:30,mode:'daily',cat:'c-school'},
+           {id:'h4',name:'Read 20 minutes',xp:10,mode:'daily',cat:'c-personal'},
+           {id:'h5',name:'Sleep before midnight',xp:15,mode:'daily',cat:'c-personal'}],
+  goals: [{id:'g1',name:'Bench press bodyweight',xp:300,cat:'c-fit'},
+          {id:'g2',name:'Run 10k under 50 min',xp:250,cat:'c-fit'},
+          {id:'g3',name:'Finish coursework draft',xp:200,cat:'c-school'}],
+  target: 10000, deadline: '2026-12-31', lastTaskCat: 'c-school'
+}))"""
+def demo_boot(page):
+    page.goto(URL)
+    page.evaluate(DEMO)
+    page.reload()
+    page.wait_for_selector(".hero")
+
 with sync_playwright() as p:
     browser = p.chromium.launch()
 
@@ -38,8 +62,7 @@ with sync_playwright() as p:
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.clock.install(time=datetime.datetime(2026, 9, 7, 23, 30, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL)
-    page.wait_for_selector(".hero")
+    demo_boot(page)
     check("no JS errors on load", not errors, errors)
     check("header shows local date", "Monday 7 September" in page.inner_text("#today"), page.inner_text("#today"))
     check("starts at level 1 / 0 XP", "Level 1" in page.inner_text(".lvl") and page.inner_text(".total").strip() == "0")
@@ -297,10 +320,11 @@ with sync_playwright() as p:
     # pinned near the fixture dates, or the missed-days penalty (correctly)
     # fines the gap between the v1 entries and the real today
     page.clock.install(time=datetime.datetime(2026, 9, 3, 9, 0, 0, tzinfo=ROME))
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     page.evaluate("localStorage.setItem('level.v2', '{not json')")
-    page.reload(); page.wait_for_selector(".hero")
-    check("corrupted storage falls back to seed without crashing", not errs2 and page.inner_text(".total").strip() == "0")
+    page.reload(); page.wait_for_selector("#f-su-name")
+    check("corrupted storage falls back to a brand-new install without crashing",
+          not errs2 and "Welcome to Level" in page.inner_text("#view"))
     check("corrupted blob preserved for recovery", page.evaluate("localStorage.getItem('level.broken')") == "{not json")
     v1 = {"habits":[{"id":"h1","name":"Gym","xp":50,"mode":"multi"}],
           "goals":[{"id":"g1","name":"Goal","xp":300,"done":True}],
@@ -348,7 +372,7 @@ with sync_playwright() as p:
     ctx = browser.new_context(**IPHONE)
     page = ctx.new_page()
     page.clock.install(time=datetime.datetime(2026, 10, 24, 23, 55, 0, tzinfo=ROME))
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     page.locator(".row[data-act=log]", has_text="Gym session").click(); page.wait_for_timeout(50)
     page.clock.run_for(10 * 60 * 1000)   # -> 00:05 on 25 Oct
     page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(80)
@@ -374,7 +398,7 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: werr.append(str(e)))
     page.clock.install(time=datetime.datetime(2026, 9, 12, 10, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
 
     page.locator("button[data-act=tab][data-id=sections]").click()
     page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
@@ -480,7 +504,7 @@ with sync_playwright() as p:
     page = ctx.new_page()
     page.clock.install(time=datetime.datetime(2026, 9, 8, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     # a daily goal in School, then delete the School section
     page.locator("button[data-act=tab][data-id=tasks]").click(); page.wait_for_timeout(50)
     page.fill("#f-t-name", "Homework"); page.fill("#f-t-xp", "40")
@@ -512,7 +536,7 @@ with sync_playwright() as p:
     derr = []
     page.on("pageerror", lambda e: derr.append(str(e)))
     page.clock.install(time=datetime.datetime(2026, 9, 8, 22, 0, 0, tzinfo=ROME))
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     check("a dark phone gets the dark theme", page.evaluate("document.documentElement.getAttribute('data-theme')") == "dark")
     check("page background is the dark token",
           page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(11, 18, 32)",
@@ -550,7 +574,7 @@ with sync_playwright() as p:
     # a light phone is unaffected
     ctx = browser.new_context(color_scheme="light", **IPHONE)
     page = ctx.new_page()
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     check("a light phone still gets the light theme",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
           and page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(243, 245, 249)")
@@ -561,7 +585,7 @@ with sync_playwright() as p:
     page = ctx.new_page()
     page.clock.install(time=datetime.datetime(2026, 9, 8, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     check("a fresh install does not nag about backups", page.locator(".remind.backup").count() == 0)
     page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(60)
     check("nor does it after one day of use", page.locator(".remind.backup").count() == 0)
@@ -606,7 +630,7 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: werr2.append(str(e)))
     page.clock.install(time=datetime.datetime(2026, 9, 10, 8, 0, 0, tzinfo=ROME))  # Thursday
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
 
     check("weight card on home with a log field", page.locator(".wcard #f-wt").count() == 1)
     # goal set inline on first use, with a comma decimal like the Italian keypad types
@@ -690,7 +714,7 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: gerr.append(str(e)))
     page.clock.install(time=datetime.datetime(2026, 9, 10, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
     page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
     page.fill("#f-g-name", "Bench press 80 kg")
@@ -747,7 +771,7 @@ with sync_playwright() as p:
     perr = []
     page.on("pageerror", lambda e: perr.append(str(e)))
     page.clock.install(time=datetime.datetime(2026, 9, 12, 10, 0, 0, tzinfo=ROME))  # Saturday
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     # deterministic history: target 10000 from 13 Aug to 31 Dec = 140 days, ~71.4/day
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
         s.target = 10000; s.start = '2026-08-13'; s.deadline = '2026-12-31';
@@ -820,7 +844,7 @@ with sync_playwright() as p:
     page = ctx.new_page()
     page.clock.install(time=datetime.datetime(2026, 9, 10, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     check("no hide toggle while nothing is done yet",
           page.locator(".goals-head button[data-act=toggle-done]").count() == 0)
     page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(50)
@@ -860,7 +884,7 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: merr.append(str(e)))
     page.clock.install(time=datetime.datetime(2026, 9, 13, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
     page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
     page.fill("#f-g-name", "Bench 80 kg")
@@ -914,7 +938,7 @@ with sync_playwright() as p:
     ctx = browser.new_context(**IPHONE)
     page = ctx.new_page()
     page.clock.install(time=datetime.datetime(2026, 9, 13, 9, 0, 0, tzinfo=ROME))
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     # 730 XP: level 5 (700) plus a 30-XP day three days ago. Empty: 6-9 Sep and 11-12 Sep.
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
         s.log.push({id:'a',type:'habit',refId:'h3',name:'Study 2 hours',xp:700,date:'2026-09-05',at:1});
@@ -952,7 +976,7 @@ with sync_playwright() as p:
     ctx = browser.new_context(**IPHONE)
     page = ctx.new_page()
     page.clock.install(time=datetime.datetime(2026, 9, 13, 9, 0, 0, tzinfo=ROME))
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     # nine quiet days on the books, but the penalty is paused
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
         s.log.push({id:'a',type:'habit',refId:'h3',name:'Study 2 hours',xp:700,date:'2026-09-04',at:1});
@@ -991,7 +1015,7 @@ with sync_playwright() as p:
     ctx = browser.new_context(**IPHONE)
     page = ctx.new_page()
     page.clock.install(time=datetime.datetime(2026, 9, 8, 14, 59, 30, tzinfo=ROME))
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     check("no banner just before the reminder time", "reminder." not in page.inner_text("#view"))
     page.clock.run_for(2 * 60 * 1000)   # cross 15:00 with the app open, no taps
     page.wait_for_timeout(150)
@@ -1011,10 +1035,59 @@ with sync_playwright() as p:
            page.locator(".day[data-id='2026-09-06']").get_attribute("data-l")))
     ctx.close()
 
+    # ---------- 3m. first-open setup ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    oerr = []
+    page.on("pageerror", lambda e: oerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 14, 9, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    page.goto(URL); page.wait_for_selector("#f-su-name")
+    check("a fresh install opens on the welcome flow with the tabs hidden",
+          "Welcome to Level" in page.inner_text("#view") and not page.locator(".tabs").is_visible())
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("and the app itself is genuinely empty",
+          d["habits"] == [] and d["goals"] == [] and d["log"] == [] and d["tasks"] == []
+          and d["weight"]["entries"] == [] and d["setup"] is False and len(d["cats"]) == 1)
+    page.locator("button[data-act=finish-setup]").click(); page.wait_for_timeout(60)
+    check("it will not start without a name", page.locator("#f-su-name").count() == 1
+          and json.loads(page.evaluate("localStorage.getItem('level.v2')"))["setup"] is False)
+    page.fill("#f-su-name", "Lorenzo")
+    page.fill("#f-su-cat", "Fitness")
+    page.locator(".sw[data-id='#22C55E']").click()
+    page.fill("#f-su-target", "8000")
+    page.fill("#f-su-deadline", "2026-12-31")
+    page.fill("#f-su-weight", "71")
+    page.locator("button[data-act=finish-setup]").click(); page.wait_for_timeout(100)
+    check("setup lands in Sections with the first habit form already open",
+          page.locator(".tabs").is_visible() and page.locator("#f-h-name").count() == 1
+          and page.locator(".secbox .sechead b", has_text="Fitness").count() == 1)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("everything from the form landed in state",
+          d["setup"] is True and d["name"] == "Lorenzo" and d["target"] == 8000
+          and d["deadline"] == "2026-12-31" and d["start"] == "2026-09-14"
+          and d["weight"]["goal"] == 71 and len(d["cats"]) == 1
+          and d["cats"][0]["name"] == "Fitness" and d["cats"][0]["color"] == "#22C55E", d)
+    page.reload(); page.wait_for_selector(".hero")
+    check("the welcome flow never returns, and the hero greets by name",
+          page.locator("#f-su-name").count() == 0 and "Lorenzo" in page.inner_text(".hero"))
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.fill("#f-name", "Enzo")
+    page.locator("button[data-act=save-name]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    check("the name can be changed later under Settings", "Enzo" in page.inner_text(".hero"))
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=reset]").click(); page.wait_for_selector("#f-su-name")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("Reset everything returns the app to brand new, welcome flow included",
+          d["setup"] is False and d["habits"] == [] and d["log"] == [])
+    check("no JS errors through the welcome flow", not oerr, oerr)
+    ctx.close()
+
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()
-    page.goto(URL); page.wait_for_selector(".hero")
+    demo_boot(page)
     w = page.evaluate("document.querySelector('.app').getBoundingClientRect().width")
     check("content capped at 480px on desktop", 470 <= w <= 481, w)
     r = page.request.get("http://localhost:8765/manifest.json")
