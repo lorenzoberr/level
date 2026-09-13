@@ -786,6 +786,26 @@ with sync_playwright() as p:
     check("day view lists what is still open", any("Still open today" in w for w in page.locator(".pitem.watch").all_inner_texts()))
     page.locator("button[data-act=prog][data-id=month]").click(); page.wait_for_timeout(60)
     check("month view draws a bar per day of September", page.locator(".wchart rect").count() == 30)
+
+    # the report is visibly dated, and follows the clock when left open
+    page.locator("button[data-act=prog][data-id=week]").click(); page.wait_for_timeout(60)
+    check("week card names the exact days it judges",
+          "7 Sept 2026" in page.inner_text(".wcard") and "13 Sept 2026" in page.inner_text(".wcard"),
+          page.inner_text(".wcard")[:120])
+    page.clock.run_for(2 * 24 * 60 * 60 * 1000)   # Sat 12 -> Mon 14, Progress left open
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(150)
+    check("a new week resets the open report by itself",
+          "0" in page.inner_text(".prognum") and "14 Sept 2026" in page.inner_text(".wcard")
+          and "20 Sept 2026" in page.inner_text(".wcard"), page.inner_text(".wcard")[:160])
+    page.locator("button[data-act=prog][data-id=day]").click(); page.wait_for_timeout(60)
+    check("day view moved to the actual day", "Monday 14 September" in page.inner_text(".wcard")
+          and "Yesterday: 0 XP" in page.inner_text(".proglab"), page.inner_text(".wcard")[:160])
+    # and it tracks the same day live: tick a habit, the number follows
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=tab][data-id=progress]").click(); page.wait_for_timeout(60)
+    check("today's XP updates the moment something is logged",
+          "20" in page.inner_text(".prognum"), page.inner_text(".prognum"))
     check("no JS errors in the progress tab", not perr, perr)
     ctx.close()
 

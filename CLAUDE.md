@@ -28,7 +28,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 ## Architecture (index.html)
 
 - State: `{cats, habits, goals, tasks, log, target, deadline, start, reminders,
-  theme, hideDone, lastBackup, weight, lastTaskCat}`.
+  theme, hideDone, penaltyPaused, penaltyFrom, lastBackup, weight, lastTaskCat}`.
   - `weight`: `{goal, entries:[{date, kg}]}` — deliberately outside the XP
     system: no `log` entries, no badge, no pending count. One entry per day
     (logging again the same day corrects it), 20-300 kg, one decimal; `kgIn()`
@@ -90,7 +90,10 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     ({type,cat}) for new ones; a successful save or Cancel clears both.
   - **Progress** reviews a day, week or month: XP earned against the daily
     pace `target / (start..deadline)` demands, a plain-words verdict, bars per
-    day, then "Went well" and "Worth watching" lists. Encouraging in tone,
+    day, then "Went well" and "Worth watching" lists. Everything derives from
+    `todayISO()` at render time - nothing is cached - and the card names the
+    exact date range it judges. Periods are calendar-aligned (Mon-Sun week,
+    calendar month) to match the weekly-habit maths, not trailing windows. Encouraging in tone,
     but the misses are named with counts.
   - **Settings** holds target, weight goal, appearance, reminders, data.
   - `state.hideDone` (persisted) tucks away ticked daily habits, met weekly

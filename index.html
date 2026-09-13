@@ -1890,9 +1890,14 @@ function viewProgress(){
   }
 
   const item=(cls,html)=>`<div class="pitem ${cls}"><span class="pdot"></span><div>${html}</div></div>`;
+  // the exact days under judgment, so the report is visibly tied to today
+  const range=kind==='day'?esc(fmtLong(t))
+    :kind==='week'?esc(fmtShort(from))+' &ndash; '+esc(fmtShort(end))
+    :MONTHS[parseLocal(t).getMonth()]+' '+parseLocal(t).getFullYear()+', day '+daysIn+' of '+(dayDiff(from,end)+1);
   return `<div class="seg">${[['day','Day'],['week','Week'],['month','Month']].map(p=>
       `<button data-act="prog" data-id="${p[0]}" aria-pressed="${prog===p[0]}">${p[1]}</button>`).join('')}</div>
     <div class="wcard">
+      <div class="proglab" style="margin:0 0 6px">${range}</div>
       <div class="prognum num">${fmt(earned)}<span> XP ${label}</span></div>
       <div class="proglab num">${perDay>0?`Pace so far asks for about ${fmt(need)}. ${prevLine}`:prevLine}</div>
       <div class="progsay">${say}</div>
