@@ -147,3 +147,8 @@ toast, the calendar shows it, and Progress lists it. Honestly forgot to log
 a day you actually did something? Backfill the habit from the calendar and
 the penalty lifts itself. Only the last 30 days are ever judged, and logging
 just your weight does not count — the rule is about the habits.
+
+Exam week, holiday, illness? Settings > Level penalty has a switch. While it
+is off, quiet days are not judged — and they never will be: switching it back
+on starts counting from that day, with no back-charges. Penalties already on
+the books stay, though; pausing is a shield, not a refund.

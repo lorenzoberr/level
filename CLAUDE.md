@@ -61,6 +61,10 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     never recomputed. Penalties are derived like bonuses: `undoLast()` skips
     them, the calendar shows them (red, "level down") with no Remove button,
     and `streak()` ignores them. Weight entries do not count as logging.
+    Settings can pause it: `penaltyPaused` stops all judging (existing
+    penalties stay - a shield, not a refund), and unpausing stamps
+    `penaltyFrom` with today so days that passed while paused are never
+    judged retroactively. Jurisdiction is `max(window, penaltyFrom)`.
   - `tasks`: daily goals tied to a `date`; overdue ones surface on Home.
   - `log`: XP entries `{type: habit|goal|task|bonus, refId, name, xp, date, at}`. Total XP
     is always the sum of `log`. `done` flags are re-derived from the log in `normalise()`.

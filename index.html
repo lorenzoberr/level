@@ -518,6 +518,8 @@ function seed(){
     reminders:{times:['15:00','18:00','21:00'],badge:true},
     theme:'auto',            // 'auto' follows the phone, or force 'light'/'dark'
     hideDone:false,          // tuck away ticked habits, done goals and objectives
+    penaltyPaused:false,     // switch the two-quiet-days level penalty off
+    penaltyFrom:null,        // judge quiet days from here on; set when unpausing
     lastBackup:null,         // YYYY-MM-DD of the last export, for the Home nudge
     // weight rides outside the XP system entirely: no log entries, no badge.
     // One entry per day; the chart plots each Monday-Sunday week's average.
@@ -627,6 +629,8 @@ function normalise(d){
 
   out.theme=(d.theme==='light'||d.theme==='dark')?d.theme:'auto';
   out.hideDone=!!d.hideDone;
+  out.penaltyPaused=!!d.penaltyPaused;
+  out.penaltyFrom=isValidISO(d.penaltyFrom)?d.penaltyFrom:null;
   out.lastBackup=isValidISO(d.lastBackup)?d.lastBackup:null;
   out.lastTaskCat=fixCat(d.lastTaskCat);
   return out;
@@ -797,12 +801,18 @@ const backupOverdue=()=>state.log.length>0&&daysSinceBackup()>=BACKUP_DAYS;
 ================================================================== */
 const PENALTY_WINDOW=30;
 function reconcilePenalties(){
+  // Paused: no judging in either direction. Penalties already on the books
+  // stay - pausing is a shield for the days ahead, not a refund.
+  if(state.penaltyPaused) return 0;
   const t=todayISO();
   const nonPen=state.log.filter(e=>e.type!=='penalty');
   if(!nonPen.length) return 0;                       // nothing begun, nothing owed
   const first=nonPen.reduce((m,e)=>e.date<m?e.date:m,t);
   const cut=addDays(t,-PENALTY_WINDOW);
-  const from=cut>first?cut:first;
+  let from=cut>first?cut:first;
+  // days that passed while the penalty was paused are never judged, even
+  // after it is switched back on: jurisdiction starts at penaltyFrom
+  if(state.penaltyFrom&&state.penaltyFrom>from) from=state.penaltyFrom;
   const active=new Set(nonPen.map(e=>e.date));
   // the 2nd, 4th, ... day of every unlogged run inside the window owes a level
   const expected=new Set();
@@ -831,6 +841,17 @@ function reconcilePenalties(){
   }
   if(changed) save();
   return applied;
+}
+
+function setPenaltyPref(on){                          // on = the penalty is active
+  state.penaltyPaused=!on;
+  if(on){
+    state.penaltyFrom=todayISO();                     // count from today, no back-charges
+    reconcilePenalties();
+    save();render();toast('Back on - quiet days count from today');
+  }else{
+    save();render();toast('Level penalty paused');
+  }
 }
 
 /* =================================================================
@@ -1892,6 +1913,12 @@ function viewSettings(){
       </div>
       <button class="btn primary" data-act="save-target">Save target</button>
     </div>
+    <div class="form"><h3>Level penalty</h3>
+      <div class="toggle"><label for="f-penalty">Two quiet days in a row cost a level</label><input type="checkbox" id="f-penalty" ${state.penaltyPaused?'':'checked'}></div>
+      <div class="note ${state.penaltyPaused?'warn':''}">${state.penaltyPaused
+        ?'Paused. Quiet days are not being judged and never will be for this stretch - switching back on starts counting from that day, with no back-charges.'
+        :'Miss two days in a row without logging anything and a level goes: your total drops to the start of the previous level, shown in red on the calendar. Backfilling a forgotten habit onto those days takes it back. Pause this for exam weeks or holidays.'}</div>
+    </div>
     <div class="form"><h3>Weight goal</h3>
       <div class="field"><label for="f-w-goal">Goal weight (kg)</label><input id="f-w-goal" inputmode="decimal" value="${state.weight.goal!==null?fmtKg(state.weight.goal):''}" placeholder="70.0" autocomplete="off"></div>
       <button class="btn primary" data-act="wt-goal">Save goal</button>
@@ -1999,6 +2026,7 @@ document.addEventListener('change',e=>{
   if(!e.target) return;
   if(e.target.id==='f-import') importData(e.target);
   if(e.target.id==='f-badge') setBadgePref(e.target.checked);
+  if(e.target.id==='f-penalty') setPenaltyPref(e.target.checked);
   // shown/hidden in place rather than re-rendering, so a half-typed name survives
   if(e.target.id==='f-h-mode'){
     const on=e.target.value==='weekly';

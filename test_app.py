@@ -922,6 +922,45 @@ with sync_playwright() as p:
     check("streak ignores penalty entries", "No streak yet" in page.inner_text(".streak"), page.inner_text(".streak"))
     ctx.close()
 
+    # ---------- 3k2. pausing the penalty ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    page.clock.install(time=datetime.datetime(2026, 9, 13, 9, 0, 0, tzinfo=ROME))
+    page.goto(URL); page.wait_for_selector(".hero")
+    # nine quiet days on the books, but the penalty is paused
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.log.push({id:'a',type:'habit',refId:'h3',name:'Study 2 hours',xp:700,date:'2026-09-04',at:1});
+        s.penaltyPaused = true;
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("paused: quiet days are not judged", not [e for e in d["log"] if e["type"] == "penalty"])
+    check("hero keeps the level while paused", "Level 5" in page.inner_text(".lvl"))
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    check("settings shows the toggle unchecked with the paused note",
+          not page.is_checked("#f-penalty") and "Paused." in page.inner_text("#view"))
+    page.locator("#f-penalty").check(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("switching back on charges nothing for the paused stretch",
+          d["penaltyPaused"] is False and d["penaltyFrom"] == "2026-09-13"
+          and not [e for e in d["log"] if e["type"] == "penalty"])
+    # a boundary in the past: only quiet days on or after it are judged
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.penaltyFrom = '2026-09-08';
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("after the boundary, quiet days count again - never before it",
+          [e["date"] for e in d["log"] if e["type"] == "penalty"] == ["2026-09-09", "2026-09-11"],
+          [e["date"] for e in d["log"] if e["type"] == "penalty"])
+    # pausing again is a shield, not a refund
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator("#f-penalty").uncheck(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("pausing keeps the penalties already on the books",
+          d["penaltyPaused"] is True and len([e for e in d["log"] if e["type"] == "penalty"]) == 2)
+    ctx.close()
+
     # ---------- 3l. live reminder banner + personal heatmap scale ----------
     ctx = browser.new_context(**IPHONE)
     page = ctx.new_page()
