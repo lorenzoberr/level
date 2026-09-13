@@ -2,7 +2,7 @@
 End-to-end tests for the Level app. Runs the real app in headless Chromium at
 iPhone size, Rome timezone, with a controllable clock.
 
-    pip install playwright && python -m playwright install chromium
+    pip install playwright tzdata && python -m playwright install chromium
     python test_app.py
 
 Serves the current folder on localhost:8765 for the duration of the run and
@@ -187,7 +187,7 @@ with sync_playwright() as p:
           and page.locator(".secbox", has_text="Career").locator("#f-cat-name").count() == 1)
     page.fill("#f-cat-name", "Work")
     page.locator("button[data-act=save-cat]").click(); page.wait_for_timeout(50)
-    check("rename section", page.locator(".secbox", has_text="Work").count() == 1 and page.locator(".secbox", has_text="Career").count() == 0)
+    check("rename section", page.locator(".secbox").filter(has=page.locator(".sechead b", has_text="Work")).count() == 1 and page.locator(".secbox", has_text="Career").count() == 0)
     page.locator(".secbox", has_text="School").locator("button[data-act=del-cat]").click(); page.wait_for_timeout(80)
     check("delete section", page.locator(".secbox", has_text="School").count() == 0)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
@@ -195,9 +195,9 @@ with sync_playwright() as p:
     check("deleted section's items reassigned, no orphans", not orphan, orphan)
 
     # ---------- sections tab: habits ----------
-    page.locator(".secbox", has_text="Work").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    page.locator(".secbox").filter(has=page.locator(".sechead b", has_text="Work")).locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
     check("add-habit form opens inside that box with its section preset",
-          page.locator(".secbox", has_text="Work").locator("#f-h-name").count() == 1
+          page.locator(".secbox").filter(has=page.locator(".sechead b", has_text="Work")).locator("#f-h-name").count() == 1
           and page.evaluate("document.getElementById('f-h-cat').selectedOptions[0].text") == "Work")
     page.fill("#f-h-name", "Cold shower")
     page.fill("#f-h-xp", "12")
@@ -205,7 +205,7 @@ with sync_playwright() as p:
     page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(50)
     check("add habit", page.locator(".row", has_text="Cold shower").count() == 1)
     check("form closes after a successful save", page.locator("#f-h-name").count() == 0)
-    page.locator(".secbox", has_text="Work").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    page.locator(".secbox").filter(has=page.locator(".sechead b", has_text="Work")).locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
     page.fill("#f-h-name", "Bad")
     page.fill("#f-h-xp", "0")
     page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(50)
@@ -232,14 +232,14 @@ with sync_playwright() as p:
     page.screenshot(path="shots/manage_habits.png", full_page=True)
 
     # ---------- sections tab: objectives ----------
-    page.locator(".secbox", has_text="Work").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
+    page.locator(".secbox").filter(has=page.locator(".sechead b", has_text="Work")).locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
     check("add-objective form opens inside that box with its section preset",
-          page.locator(".secbox", has_text="Work").locator("#f-g-name").count() == 1
+          page.locator(".secbox").filter(has=page.locator(".sechead b", has_text="Work")).locator("#f-g-name").count() == 1
           and page.evaluate("document.getElementById('f-g-cat').selectedOptions[0].text") == "Work")
     page.fill("#f-g-name", "Get Equita return offer")
     page.fill("#f-g-xp", "500")
     page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(50)
-    check("add objective", page.locator(".secbox", has_text="Work").locator(".row", has_text="Equita").count() == 1)
+    check("add objective", page.locator(".secbox").filter(has=page.locator(".sechead b", has_text="Work")).locator(".row", has_text="Equita").count() == 1)
     page.locator(".row", has_text="Run 10k").locator(".tick").click(); page.wait_for_timeout(50)
     check("complete objective from its box", "done" in (page.locator(".row", has_text="Run 10k").get_attribute("class") or "")
           and "1 done" in page.locator(".secbox", has_text="Fitness").inner_text())
@@ -294,6 +294,9 @@ with sync_playwright() as p:
     page = ctx.new_page()
     errs2 = []
     page.on("pageerror", lambda e: errs2.append(str(e)))
+    # pinned near the fixture dates, or the missed-days penalty (correctly)
+    # fines the gap between the v1 entries and the real today
+    page.clock.install(time=datetime.datetime(2026, 9, 3, 9, 0, 0, tzinfo=ROME))
     page.goto(URL); page.wait_for_selector(".hero")
     page.evaluate("localStorage.setItem('level.v2', '{not json')")
     page.reload(); page.wait_for_selector(".hero")
@@ -647,7 +650,7 @@ with sync_playwright() as p:
     check("running week's point is hollow", svg.locator("circle[stroke-width='2']").count() == 1)
     check("weekly points joined by a line", svg.locator("polyline").count() == 1)
     check("goal drawn as a labelled dashed line",
-          svg.locator("line[stroke-dasharray='5 4']").count() == 1 and "Goal 70.0" in svg.inner_text())
+          svg.locator("line[stroke-dasharray='5 4']").count() == 1 and "Goal 70.0" in svg.text_content())
     check("segment into the running week is dashed", svg.locator("line[stroke-dasharray='4 4']").count() == 1)
     page.screenshot(path="shots/weight_chart.png", full_page=True)
 
@@ -759,7 +762,10 @@ with sync_playwright() as p:
         for (const d of ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11']) put('habit', 'h3', 'Study 2 hours', 30, d);
         for (const d of ['2026-09-08', '2026-09-10', '2026-09-12']) put('habit', 'h2', '8k steps', 20, d);
         for (const d of ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-11', '2026-09-12']) put('habit', 'h4', 'Read 20 minutes', 10, d);
-        put('habit', 'h3', 'Study 2 hours', 500, '2026-09-02');   // last week: exactly 500
+        put('habit', 'h3', 'Study 2 hours', 500, '2026-09-02');   // last week: 500 + 4x10 filler
+        // no unlogged gaps, or the missed-days penalty (correctly) rewrites the arithmetic
+        for (const d of ['2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06'])
+          put('habit', 'h4', 'Read 20 minutes', 10, d);
         s.tasks.push({id: 'tx', name: 'Email the tutor', xp: 15, cat: s.cats[1].id, date: '2026-09-10', done: false});
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
     page.reload(); page.wait_for_selector(".hero")
@@ -767,10 +773,10 @@ with sync_playwright() as p:
     check("week is the default period", page.locator("button[data-act=prog][data-id=week]").get_attribute("aria-pressed") == "true")
     check("weekly XP against the pace the target asks for",
           "470" in page.inner_text(".prognum") and "asks for about 429" in page.inner_text(".proglab"), page.inner_text(".proglab"))
-    check("last week comparison shown", "Last week: 500 XP" in page.inner_text(".proglab"))
+    check("last week comparison shown", "Last week: 540 XP" in page.inner_text(".proglab"), page.inner_text(".proglab"))
     check("evaluative verdict: ahead of pace", "41 XP ahead" in page.inner_text(".progsay"), page.inner_text(".progsay"))
     svg = page.locator(".wchart svg")
-    check("seven bars with the pace line drawn across", svg.locator("rect").count() == 7 and "pace 71/day" in svg.inner_text())
+    check("seven bars with the pace line drawn across", svg.locator("rect").count() == 7 and "pace 71/day" in svg.text_content())
     wins = page.locator(".pitem.win").all_inner_texts()
     check("wins: weekly bonus and best day celebrated",
           any("Weekly target hit" in w for w in wins) and any("Best day" in w for w in wins), wins)

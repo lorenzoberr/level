@@ -332,6 +332,7 @@
   .prognum{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1}
   .prognum span{font-size:16px;font-weight:600;color:var(--muted);letter-spacing:0}
   .proglab{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .progdate{font-size:12.5px;color:var(--muted);margin:0 0 6px}
   .progsay{font-size:14px;line-height:1.55;color:var(--ink-soft);margin-top:10px}
   .progsay b{font-weight:700}
   .pitem{display:flex;align-items:flex-start;gap:9px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.45}
@@ -1897,7 +1898,7 @@ function viewProgress(){
   return `<div class="seg">${[['day','Day'],['week','Week'],['month','Month']].map(p=>
       `<button data-act="prog" data-id="${p[0]}" aria-pressed="${prog===p[0]}">${p[1]}</button>`).join('')}</div>
     <div class="wcard">
-      <div class="proglab" style="margin:0 0 6px">${range}</div>
+      <div class="progdate">${range}</div>
       <div class="prognum num">${fmt(earned)}<span> XP ${label}</span></div>
       <div class="proglab num">${perDay>0?`Pace so far asks for about ${fmt(need)}. ${prevLine}`:prevLine}</div>
       <div class="progsay">${say}</div>

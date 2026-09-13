@@ -114,16 +114,17 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — ~100 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 237 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.
 
-Python is not installed on the owner's Windows machine, so the suite cannot be
-run from there as things stand. `serve.ps1` (PowerShell, no dependencies) serves
-the folder on `http://localhost:8765/` for eyeballing changes in a browser; it
-is a dev convenience, not part of the app. Service workers do not register
-against it — use the real host to check offline behaviour.
+The suite RUNS on the owner's machine: Python 3.12 with `pip install
+playwright tzdata` (tzdata is required - Windows Python has no system zone
+data) and `python -m playwright install chromium`. First full pass: 13 Sep
+2026, 237 checks, 0 failures. `serve.ps1` (PowerShell, no dependencies)
+serves the folder on `http://localhost:8765/` for eyeballing changes; service
+workers do not register against it - use the real host for offline checks.
 
 Real iOS Safari has NOT been tested from this environment. Things only a phone
 can verify: Add to Home Screen, standalone mode, the share-sheet export, the
