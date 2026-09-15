@@ -1222,6 +1222,91 @@ with sync_playwright() as p:
     check("no JS errors in the finance flow", not ferr, ferr)
     ctx.close()
 
+    # ---------- 3n. XP suggestion dials + headroom advisory ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    serr = []
+    page.on("pageerror", lambda e: serr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    demo_boot(page)
+
+    # the formula, pinned: all fifteen habit values (CEIL 100)
+    grid = page.evaluate("() => [3,4,5].map(i => [1,2,3,4,5].map(e => suggestXP(100,i,e)))")
+    check("habit suggestions pinned, importance 3", grid[0] == [15, 20, 35, 55, 90], grid[0])
+    check("habit suggestions pinned, importance 4", grid[1] == [20, 25, 40, 60, 95], grid[1])
+    check("habit suggestions pinned, importance 5", grid[2] == [25, 30, 45, 65, 100], grid[2])
+    check("objective samples (CEIL 500)", page.evaluate(
+        "() => [suggestXP(500,3,3), suggestXP(500,5,5), suggestXP(500,1,1)]") == [170, 500, 25])
+    check("task samples (CEIL 30), low end floored at 5", page.evaluate(
+        "() => [suggestXP(30,3,4), suggestXP(30,5,5), suggestXP(30,1,1)]") == [15, 30, 5])
+    check("importance and effort clamp to 1..5", page.evaluate(
+        "() => [suggestXP(100,0,9), suggestXP(100,99,-3)]") == [80, 25])
+    check("round-to-nearest-five", page.evaluate(
+        "() => [suggestXP(100,3,3), suggestXP(100,4,4)]") == [35, 60])  # 33.75 up, 62.19 down
+
+    # dials in the habit form: no auto-fill until touched, then table values
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    check("two dials, both resting at 3, XP untouched",
+          page.locator(".xseg").count() == 2
+          and page.locator(".xseg [aria-pressed=true]").count() == 2
+          and page.input_value("#f-h-xp") == "25")
+    page.locator(".xseg[data-kind=imp] [data-id='4']").click(); page.wait_for_timeout(40)
+    check("importance 4 with resting effort 3 suggests 40", page.input_value("#f-h-xp") == "40")
+    page.locator(".xseg[data-kind=eff] [data-id='5']").click(); page.wait_for_timeout(40)
+    check("effort 5 re-suggests 95", page.input_value("#f-h-xp") == "95")
+    # typing over the suggestion is what saves; nothing about the dials persists
+    page.fill("#f-h-name", "Dialled habit")
+    page.fill("#f-h-xp", "33")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    hj = [h for h in d["habits"] if h["name"] == "Dialled habit"][0]
+    check("typed XP wins and no dial fields are stored",
+          hj["xp"] == 33 and sorted(hj.keys()) == ["bonus", "cat", "id", "mode", "name", "perWeek", "xp"], hj)
+    check("importance/effort appear nowhere in storage",
+          "importance" not in page.evaluate("localStorage.getItem('level.v2')")
+          and "effort" not in page.evaluate("localStorage.getItem('level.v2')"))
+    # re-touching a dial on edit overwrites the typed value
+    page.locator(".row", has_text="Dialled habit").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(50)
+    check("edit shows the typed value", page.input_value("#f-h-xp") == "33")
+    page.locator(".xseg[data-kind=eff] [data-id='2']").click(); page.wait_for_timeout(40)
+    check("a dial touch re-suggests over the typed value", page.input_value("#f-h-xp") == "20")
+    page.locator("button[data-act=cancel]").click(); page.wait_for_timeout(40)
+    # the task quick-add carries the dials with CEIL 30
+    page.locator("button[data-act=tab][data-id=tasks]").click(); page.wait_for_timeout(60)
+    page.locator(".quick .xseg[data-kind=eff] [data-id='4']").click(); page.wait_for_timeout(40)
+    check("task dial suggests 15 (imp 3, eff 4, CEIL 30)", page.input_value("#f-t-xp") == "15")
+
+    # headroom advisory: quiet below 70% of the target, warns above it
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.target = 100000; s.start = '2026-09-01'; s.deadline = '2026-12-31';  // 122 days, 18 weeks
+        s.habits = [{id:'hA',name:'Study',xp:100,mode:'daily',cat:'c-fit'},
+                    {id:'hB',name:'Deep work',xp:600,mode:'daily',cat:'c-fit'},
+                    {id:'hC',name:'Gym',xp:110,mode:'weekly',perWeek:3,bonus:70,cat:'c-fit'}];
+        s.goals = [{id:'gA',name:'Big lift',xp:2000,cat:'c-fit'}];
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    # maxH = 122*(100+600) + 18*3*110 = 91,340; realistic = 68,505 + 1,000 = 69,505 -> under 70,000
+    note = page.locator("#view .note", has_text="realistic consistency")
+    check("advisory present, not warn-styled, at 69,505 of 100,000",
+          note.count() == 1 and "69,505" in note.inner_text() and "93,340" in note.inner_text()
+          and "warn" not in (note.get_attribute("class") or ""), note.inner_text() if note.count() else "missing")
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.goals[0].xp = 6000;                                   // realistic -> 71,505
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    note = page.locator("#view .note", has_text="realistic consistency")
+    check("advisory warns above 70,000 and says why",
+          "warn" in (note.get_attribute("class") or "") and "71,505" in note.inner_text()
+          and "trimming the list or lowering some XP" in note.inner_text(), note.inner_text())
+    check("weekly habits counted at their real perWeek (18 weeks x 3 x 110 inside 97,340 max)",
+          "97,340" in note.inner_text())
+    check("no JS errors in the suggestion flow", not serr, serr)
+    ctx.close()
+
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()

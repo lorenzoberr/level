@@ -111,6 +111,19 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     objectives inside it. Add/edit forms open in place inside the box they
     belong to: UI state `editing` ({type,id}) for existing items, `adding`
     ({type,cat}) for new ones; a successful save or Cancel clears both.
+    The habit/objective/daily-goal forms carry two 1-5 Importance/Effort
+    dials that only PRE-FILL the XP field: `suggestXP(ceil,imp,eff)` =
+    max(5, round5(ceil*(0.25*imp/5 + 0.75*((eff-1)/4)^2))), CEIL 100 for
+    habits, 500 for objectives, 30 for daily goals. The dials are
+    input-only DOM state - nothing is stored on the item, the typed value
+    always wins at save, and a dial touch overwrites the field in place
+    (no render). Sections also shows the headroom advisory
+    (`headroomEstimate()`): habit occurrences (daily/multi = inclusive day
+    count of start..deadline; weekly = ceil(days/7) x perWeek, bonuses
+    excluded) x XP x 0.75 plus objectives at half value, against the
+    honest full-consistency maximum; warn-styled above 70% of
+    `state.target`. Advisory only - it never blocks a save or scales a
+    suggestion.
   - **Progress** reviews a day, week or month: XP earned against the daily
     pace `target / (start..deadline)` demands, a plain-words verdict, bars per
     day, then "Went well" and "Worth watching" lists. Everything derives from
@@ -142,7 +155,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 272 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 291 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.

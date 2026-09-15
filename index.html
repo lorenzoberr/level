@@ -333,6 +333,12 @@
   .mini:active{opacity:.8}
   .mini.dim{background:transparent;color:var(--muted);font-weight:500;padding-left:2px}
 
+  /* ---------- xp suggestion dials ---------- */
+  .xseg{display:flex;gap:4px}
+  .xseg button{flex:1;min-height:38px;border:1px solid var(--line-2);border-radius:9px;
+    background:var(--input-bg);font-size:13.5px;font-weight:600;color:var(--muted)}
+  .xseg button[aria-pressed="true"]{background:var(--hero-b);border-color:var(--hero-b);color:var(--day-hi-ink)}
+
   /* ---------- finances ---------- */
   .fin-good{color:var(--fin-good);font-weight:600}
   .fin-bad{color:var(--fin-bad);font-weight:600}
@@ -1483,6 +1489,7 @@ function quickAddHTML(iso,withDate){
   const t=todayISO();
   const label=withDate?'Add':iso===t?'Add goal':'Add for '+fmtShort(iso);
   return `<div class="quick" id="quick-add">
+    ${suggHTML('f-t-xp',30)}
     <div class="line"><input class="name" id="f-t-name" placeholder="Finish the marketing homework" maxlength="80" autocomplete="off" aria-label="Goal name"><input class="xp num" id="f-t-xp" type="number" inputmode="numeric" min="1" step="1" value="25" aria-label="XP"></div>
     ${withDate?`<div class="line"><input type="date" id="f-t-date" value="${t}" aria-label="Day" style="flex:1;min-width:0;padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--input-bg);font-size:16px;min-height:44px"></div>`:''}
     <div class="line"><select id="f-t-cat" aria-label="Section">${catOptions(state.lastTaskCat)}</select><button class="btn primary" data-act="task-add" data-id="${iso}">${label}</button></div>
@@ -1769,9 +1776,38 @@ function catFormHTML(ed){
     <div class="inline"><button class="btn primary" data-act="save-cat">${ed?'Save changes':'Add section'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
   </div>`;
 }
+/* =================================================================
+   XP SUGGESTION
+   Two 1-5 dials, Importance and Effort, sit above the XP field on the
+   habit, objective and daily-goal forms. Touching either writes a
+   suggested XP into the field; the user can type over it, and what is
+   in the field is what saves. The dials are input-only - nothing about
+   them is stored on the item, so the data model is unchanged.
+   suggested = round5( CEIL * (0.25*(imp/5) + 0.75*((eff-1)/4)^2) )
+   with CEIL 100 for habits, 500 for objectives, 30 for daily goals,
+   floored at 5 so a low task suggestion is never below the XP field's
+   own minimum.
+================================================================== */
+function suggestXP(ceil,imp,eff){
+  imp=Math.min(5,Math.max(1,Math.round(imp)||1));
+  eff=Math.min(5,Math.max(1,Math.round(eff)||1));
+  const raw=ceil*(0.25*(imp/5)+0.75*Math.pow((eff-1)/4,2));
+  return Math.max(5,Math.round(raw/5)*5);
+}
+function suggHTML(target,ceil){
+  const row=kind=>`<div class="xseg" data-kind="${kind}" data-target="${target}" data-ceil="${ceil}">${
+    [1,2,3,4,5].map(v=>`<button data-act="sugg" data-id="${v}" aria-pressed="${v===3}" aria-label="${kind==='imp'?'Importance':'Effort'} ${v}">${v}</button>`).join('')}</div>`;
+  return `<div class="two">
+      <div class="field" style="margin-bottom:6px"><label>Importance</label>${row('imp')}</div>
+      <div class="field" style="margin-bottom:6px"><label>Effort</label>${row('eff')}</div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:-2px 0 8px">Touch a dial and a suggested XP fills in below - type your own over it any time.</div>`;
+}
+
 function habitFormHTML(ed,presetCat){
   return `<div class="form"><h3>${ed?'Edit habit':'New habit'}</h3>
     <div class="field"><label for="f-h-name">Name</label><input id="f-h-name" placeholder="Gym session" value="${ed?esc(ed.name):''}" maxlength="60"></div>
+    ${suggHTML('f-h-xp',100)}
     <div class="two">
       <div class="field"><label for="f-h-xp">XP</label><input id="f-h-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:25}"></div>
       <div class="field"><label for="f-h-mode">How often</label><select id="f-h-mode"><option value="daily" ${ed&&ed.mode==='daily'?'selected':''}>Once a day</option><option value="multi" ${ed&&ed.mode==='multi'?'selected':''}>Repeatable</option><option value="weekly" ${ed&&ed.mode==='weekly'?'selected':''}>Times a week</option></select></div>
@@ -1788,6 +1824,7 @@ function habitFormHTML(ed,presetCat){
 function goalFormHTML(ed,presetCat){
   return `<div class="form"><h3>${ed?'Edit objective':'New objective'}</h3>
     <div class="field"><label for="f-g-name">What is it</label><input id="f-g-name" placeholder="Run 10k under 50 min" value="${ed?esc(ed.name):''}" maxlength="60"></div>
+    ${suggHTML('f-g-xp',500)}
     <div class="two">
       <div class="field"><label for="f-g-xp">XP when done</label><input id="f-g-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:250}"></div>
       <div class="field"><label for="f-g-cat">Section</label><select id="f-g-cat">${catOptions(ed?ed.cat:presetCat)}</select></div>
@@ -1840,7 +1877,38 @@ function viewSections(){
   const newCat=adding&&adding.type==='cat'
     ?catFormHTML(null)
     :`<button class="btn ghost" data-act="add-cat">+ New section</button>`;
-  return head+boxes+newCat;
+  return head+boxes+newCat+headroomHTML();
+}
+
+/* Headroom advisory: how much of the target the recurring items already
+   commit. Realistic = habits at 75% consistency + objectives at half value;
+   the honest maximum = full consistency, every objective met (weekly bonuses
+   not counted - same basis both ways). Advisory only: it never blocks a save
+   and never touches a suggestion. */
+function headroomEstimate(){
+  const days=Math.max(0,dayDiff(state.start,state.deadline))+1;   // inclusive calendar days
+  const weeks=Math.ceil(days/7);
+  let maxH=0;
+  for(const h of state.habits){
+    const occ=h.mode==='weekly'?weeks*h.perWeek:days;             // multi treated as once a day
+    maxH+=occ*h.xp;
+  }
+  const maxO=state.goals.reduce((s,g)=>s+g.xp,0);
+  return {realistic:Math.round(maxH*0.75+maxO*0.5),max:maxH+maxO};
+}
+function headroomHTML(){
+  if(!state.habits.length&&!state.goals.length) return '';
+  const e=headroomEstimate();
+  const hot=e.realistic>state.target*0.7;
+  const lvl=levelInfo(e.realistic).level;
+  return `<div class="note ${hot?'warn':''}" style="margin-top:14px">
+    At realistic consistency (habits 75%, objectives half), the recurring list
+    commits about <b class="num">${fmt(e.realistic)} XP</b> of your
+    <span class="num">${fmt(state.target)}</span> target by ${esc(fmtShort(state.deadline))};
+    at full consistency with every objective met it tops out at
+    <b class="num">${fmt(e.max)} XP</b>.${hot
+      ?` That alone may make level ${lvl} easy - consider trimming the list or lowering some XP.`
+      :''}</div>`;
 }
 
 /* =================================================================
@@ -2358,6 +2426,15 @@ const ACTIONS={
   'fin-dir':id=>{pickedDir=id==='over'?'over':'under';document.querySelectorAll('.finseg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===pickedDir));},
   'fin-close':ym=>closeFinMonth(ym),
   'fin-reopen':ym=>reopenFinMonth(ym),
+  sugg:(v,el)=>{
+    const row=el.closest('.xseg'); if(!row) return;
+    row.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===v?'true':'false'));
+    const scope=row.closest('.form,.quick')||document;
+    const dial=k=>{const r=scope.querySelector(`.xseg[data-kind="${k}"]`);
+      const p=r&&r.querySelector('button[aria-pressed="true"]');return p?+p.dataset.id:3;};
+    const inp=document.getElementById(row.dataset.target);
+    if(inp) inp.value=suggestXP(+row.dataset.ceil,dial('imp'),dial('eff'));
+  },
   'rem-add':()=>addReminderTime(),
   'rem-del':v=>removeReminderTime(v)
 };

@@ -179,3 +179,15 @@ skipped — but an explicit £0 is a real answer and gets judged, so an empty
 investing month costs you its XP. Closed the month too soon? Reopen takes
 the XP back and unlocks it. Money never counts as daily logging: it cannot
 feed the streak and the quiet-days penalty cannot see it.
+
+## Suggested XP
+
+Not sure what a habit should pay? The habit, objective and daily-goal forms
+carry two 1-5 dials, Importance and Effort. Touch either and a suggested XP
+fills the field - effort weighs more than importance, and hard things climb
+steeply. It is only a suggestion: type your own number over it and that is
+what saves; nothing about the dials is stored. The Sections tab also shows a
+small footnote estimating how much of your target the recurring list already
+commits at realistic consistency - it turns amber if your habits alone would
+carry you most of the way, which usually means individual XP values are
+inflated.
