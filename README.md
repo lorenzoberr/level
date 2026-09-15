@@ -133,8 +133,12 @@ Seven tabs along the bottom, each with one job:
   with a "Move to today" button, on both Home and the Tasks tab.
 - Calendar: tap any past day to see its entries, remove one, or log a habit
   you forgot to log that day.
-- Level curve: reaching level L costs `100(L-1) + 25(L-1)(L-2)` XP.
-  Level 2 at 100, 5 at 700, 10 at 2,700, 20 at 10,450.
+- Level curve: level 2 at 100 XP, 10 at about 1,570, 50 at about 26,750,
+  the level-80 goal at about 65,130, and level 100 - the hard cap - at
+  exactly 100,000. Each level costs a little more than the last, and the
+  hero carries a small "goal 80" marker until you get there. Nothing
+  counts past 100,000: the log keeps the truth, the display stops at the
+  summit.
 - Pace is measured from "Counting from" in Settings (set to your first launch)
   to the deadline.
 - Editing a habit's XP does not rewrite past entries; history stays as it was.

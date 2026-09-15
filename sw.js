@@ -1,4 +1,4 @@
-const CACHE = 'level-v17';
+const CACHE = 'level-v18';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

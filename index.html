@@ -144,6 +144,9 @@
   .hero .hname{font-size:13.5px;font-weight:700;opacity:.95;letter-spacing:.01em}
   .hero .lvl{font-size:14px;font-weight:600;opacity:.92}
   .hero .lvl span{opacity:.75;font-weight:500}
+  .hero .goal80{font-size:10.5px;font-weight:600;opacity:.65;margin-left:8px;
+    border:1px solid rgba(255,255,255,.5);border-radius:99px;padding:1.5px 8px;vertical-align:1.5px}
+  .hero .goal80.met{opacity:1;border-color:var(--gold);color:var(--gold)}
   .hero .total{font-size:54px;line-height:1;font-weight:800;letter-spacing:-0.045em;margin:6px 0 2px}
   .hero .totlab{font-size:13px;opacity:.75}
   .hero .streak{font-size:12.5px;margin-top:6px;opacity:.9}
@@ -513,16 +516,31 @@ const fmtShort=iso=>{const d=parseLocal(iso);return d?d.toLocaleDateString('en-G
 const PALETTE=['#3B82F6','#22C55E','#8B5CF6','#F97316','#EC4899','#14B8A6','#F59E0B','#EF4444'];
 
 /* =================================================================
-   LEVEL CURVE
-   Reaching level L costs 100(L-1) + 25(L-1)(L-2) total XP.
-   L2 = 100, L3 = 250, L4 = 450, L5 = 700, L10 = 2,700, L20 = 10,450.
+   LEVEL CURVE + HARD CAP
+   xpForLevel(L) = round(90.7(L-1) + 9.2869(L-1)^2) - gentle early,
+   rising cost per level, calibrated so level 100 costs exactly
+   100,000 total XP. Level 100 is the hard maximum; level 80 is the
+   owner's goal. CAP CHOICE: clamped at DERIVATION AND DISPLAY, not
+   on award. The stored log stays fully truthful ("total XP is
+   always the sum of the log" survives, entries are never trimmed,
+   so finance reopen / bonus revoke / undo symmetry all keep working
+   unchanged); levelInfo() clamps its input, which caps every level
+   derivation - hero, toasts, penalty floors, advisories - in one
+   place, and the hero reads cappedXP() so the displayed total never
+   passes 100,000 even if the raw sum runs over.
 ================================================================== */
-const xpForLevel=L=>100*(L-1)+25*(L-1)*(L-2);
+const LEVEL_CAP=100;
+const GOAL_LEVEL=80;
+const xpForLevel=L=>Math.round(90.7*(L-1)+9.2869*(L-1)*(L-1));
+const XP_CAP=xpForLevel(LEVEL_CAP);                // exactly 100,000
 function levelInfo(xp){
+  xp=Math.max(0,Math.min(XP_CAP,xp));
   let L=1;
-  while(xpForLevel(L+1)<=xp) L++;
+  while(L<LEVEL_CAP&&xpForLevel(L+1)<=xp) L++;
+  if(L>=LEVEL_CAP) return {level:LEVEL_CAP,floor:XP_CAP,ceil:XP_CAP,into:0,need:0,pct:100,maxed:true};
   const floor=xpForLevel(L),ceil=xpForLevel(L+1);
-  return {level:L,floor,ceil,into:xp-floor,need:ceil-floor,pct:Math.max(0,Math.min(100,(xp-floor)/(ceil-floor)*100))};
+  return {level:L,floor,ceil,into:xp-floor,need:ceil-floor,
+    pct:Math.max(0,Math.min(100,(xp-floor)/(ceil-floor)*100)),maxed:false};
 }
 const TIERS=[[20,'Legend'],[15,'Veteran'],[10,'Athlete'],[5,'Regular'],[1,'Rookie']];
 const tierName=L=>TIERS.find(t=>L>=t[0])[1];
@@ -763,6 +781,8 @@ let charAnim='';
    DERIVED
 ================================================================== */
 function totalXP(){return state.log.reduce((s,e)=>s+e.xp,0);}
+// what levels and the hero read: the log's sum, never shown past the cap
+const cappedXP=()=>Math.min(totalXP(),XP_CAP);
 function xpOn(iso){return state.log.filter(e=>e.date===iso).reduce((s,e)=>s+e.xp,0);}
 function entriesOn(iso){return state.log.filter(e=>e.date===iso).sort((a,b)=>a.at-b.at);}
 function loggedOn(habitId,iso){return state.log.filter(e=>e.type==='habit'&&e.refId===habitId&&e.date===iso);}
@@ -1376,7 +1396,7 @@ function characterSVG(L){
    VIEWS
 ================================================================== */
 function heroHTML(){
-  const xp=totalXP(),L=levelInfo(xp),s=streak(),t=todayISO();
+  const xp=cappedXP(),L=levelInfo(xp),s=streak(),t=todayISO();
   const yearPct=Math.max(0,Math.min(100,xp/state.target*100));
   const span=dayDiff(state.start,state.deadline);
   const elapsed=dayDiff(state.start,t);
@@ -1396,7 +1416,7 @@ function heroHTML(){
     <div class="hero-row">
       <div class="hero-text">
         ${state.name?`<div class="hname">${esc(state.name)}</div>`:''}
-        <div class="lvl">Level ${L.level} <span>&middot; ${tierName(L.level)}</span></div>
+        <div class="lvl">Level ${L.level} <span>&middot; ${tierName(L.level)}</span><span class="goal80${L.level>=GOAL_LEVEL?' met':''}">${L.level>=GOAL_LEVEL?'goal 80 &#10003;':'goal 80'}</span></div>
         <div class="total num">${fmt(xp)}</div>
         <div class="totlab">total XP</div>
         <div class="streak">${s?s+' day streak':'No streak yet'}</div>
@@ -1405,8 +1425,10 @@ function heroHTML(){
     </div>
     <div class="hero-bars">
       <div class="bar"><i style="width:${L.pct.toFixed(2)}%"></i></div>
-      <div class="barmeta"><span class="num">${fmt(L.into)} / ${fmt(L.need)}</span>
-        <span class="num">${fmt(L.ceil-xp)} XP to level ${L.level+1}</span></div>
+      <div class="barmeta">${L.maxed
+        ?`<span>Maxed</span><span class="num">100,000 XP &mdash; the summit</span>`
+        :`<span class="num">${fmt(L.into)} / ${fmt(L.need)}</span>
+        <span class="num">${fmt(L.ceil-xp)} XP to level ${L.level+1}</span>`}</div>
     </div>
     <div class="yearbox">
       <div class="yearhead"><b>Target by ${fmtShort(state.deadline)}</b>
@@ -2412,7 +2434,7 @@ function viewSettings(){
         <label class="btn ghost" style="cursor:pointer">Restore backup<input type="file" accept=".json,application/json" class="hidden" id="f-import"></label></div>
       <div class="inline"><button class="btn danger" data-act="reset">Reset everything</button></div>
     </div>
-    <div class="note" style="margin-top:4px">Level curve: level 2 at 100 XP, level 5 at 700, level 10 at 2,700, level 20 at 10,450. Each level costs 50 XP more than the one before.</div>`;
+    <div class="note" style="margin-top:4px">Level curve: level 2 at 100 XP, 10 at 1,569, 50 at 26,742, the level-80 goal at 65,125, and level 100 - the cap - at exactly 100,000. Each level costs a little more than the one before; nothing counts past 100,000.</div>`;
 }
 
 /* =================================================================

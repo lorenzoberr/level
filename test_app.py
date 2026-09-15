@@ -963,9 +963,10 @@ with sync_playwright() as p:
     pens = sorted([e for e in d["log"] if e["type"] == "penalty"], key=lambda e: e["date"])
     check("each pair of quiet days costs a level, on the 2nd and 4th day of a run",
           [p["date"] for p in pens] == ["2026-09-07", "2026-09-09", "2026-09-12"], [p["date"] for p in pens])
-    check("each drop lands exactly on the previous level's floor (730->450->250->100)",
-          [p["xp"] for p in pens] == [-280, -200, -150] and sum(e["xp"] for e in d["log"]) == 100, pens)
-    check("hero shows the demoted level", "Level 2" in page.inner_text(".lvl"))
+    # new curve: 730 = level 6 (686<=730<879); floors L5=511, L4=356, L3=219
+    check("each drop lands exactly on the previous level's floor (730->511->356->219)",
+          [p["xp"] for p in pens] == [-219, -155, -137] and sum(e["xp"] for e in d["log"]) == 219, pens)
+    check("hero shows the demoted level", "Level 3" in page.inner_text(".lvl"))
     page.reload(); page.wait_for_selector(".hero")
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("reconciling again adds nothing (idempotent)",
@@ -999,7 +1000,7 @@ with sync_playwright() as p:
     page.reload(); page.wait_for_selector(".hero")
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("paused: quiet days are not judged", not [e for e in d["log"] if e["type"] == "penalty"])
-    check("hero keeps the level while paused", "Level 5" in page.inner_text(".lvl"))
+    check("hero keeps the level while paused", "Level 6" in page.inner_text(".lvl"))   # 700 on the new curve
     page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     check("settings shows the toggle unchecked with the paused note",
           not page.is_checked("#f-penalty") and "Paused." in page.inner_text("#view"))
@@ -1394,6 +1395,71 @@ with sync_playwright() as p:
           all(sids["Supermarket"] not in m["spent"] for m in d["finance"]["months"].values())
           and len(d["finance"]["categories"]) == 2)
     check("no JS errors in the subcategory flow", not suberr, suberr)
+    ctx.close()
+
+    # ---------- 3q. new level curve + hard cap ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    qerr = []
+    page.on("pageerror", lambda e: qerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    fin_boot(page)
+    # the milestone table, pinned (level 1 and 100 exact, the rest per spec's "about")
+    check("curve milestones pinned",
+          page.evaluate("() => [1,2,5,10,20,50,80,100].map(L => xpForLevel(L))")
+          == [0, 100, 511, 1569, 5076, 26742, 65125, 100000])
+    check("level never exceeds 100, even at absurd XP",
+          page.evaluate("() => [levelInfo(100000).level, levelInfo(5000000).level, levelInfo(99999).level]")
+          == [100, 100, 99])
+    check("maxed state: full bar, nothing further owed",
+          page.evaluate("() => { const m = levelInfo(123456); return m.maxed && m.pct === 100 && m.need === 0; }"))
+    check("per-level cost strictly rises",
+          page.evaluate("""() => { let prev = 0;
+              for (let L = 2; L <= 100; L++) { const c = xpForLevel(L) - xpForLevel(L-1);
+                if (c < prev) return false; prev = c; } return true; }"""))
+    # the goal-80 marker: unmet chip now, met once level 80 is reached
+    check("goal-80 marker shown while under the goal",
+          page.locator(".goal80").count() == 1 and page.locator(".goal80.met").count() == 0)
+    # cap end-to-end: 99,990 banked, finance close pays 80 -> raw 100,070, display 100,000
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.log.push({id:'big',type:'habit',refId:'hx',name:'History',xp:99990,date:'2026-09-15',at:1});
+        s.finance.months['2026-09'] = {spent:{f1:200}, closed:false, awarded:0};
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
+    page.locator("button[data-act=fin-close]").click(); page.wait_for_timeout(100)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("the log stays truthful past the cap (derivation clamp, not award clamp)",
+          sum(e["xp"] for e in d["log"]) == 100070, sum(e["xp"] for e in d["log"]))
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(80)
+    check("display caps at 100,000 / level 100 / maxed bar",
+          page.inner_text(".total").strip() == "100,000" and "Level 100" in page.inner_text(".lvl")
+          and "Maxed" in page.inner_text(".barmeta"), page.inner_text(".barmeta"))
+    check("goal-80 marker flips to met", page.locator(".goal80.met").count() == 1)
+    # a weekly bonus on top cannot move the display either
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.habits.push({id:'hw',name:'Rowing',xp:10,mode:'weekly',perWeek:1,bonus:50,cat:'c-fit'});
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    page.locator(".row[data-act=log]", has_text="Rowing").click(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("bonus XP recorded truthfully but display still capped",
+          sum(e["xp"] for e in d["log"]) == 100130 and page.inner_text(".total").strip() == "100,000"
+          and "Level 100" in page.inner_text(".lvl"))
+    # penalty floor on the new curve: 600 XP = level 5, one quiet pair -> exactly 356 (floor of 4)
+    check("penalty floor arithmetic on the new curve",
+          page.evaluate("""() => { localStorage.clear(); state = seed(); state.setup = true;
+              state.cats = [{id:'c1',name:'S',color:PALETTE[0]}];
+              state.log = [{id:'a',type:'habit',refId:'h',name:'S',xp:600,date:addDays(todayISO(),-3),at:1}];
+              save(); const n = reconcilePenalties();
+              return [n, state.log.filter(e => e.type==='penalty')[0].xp,
+                      state.log.reduce((s,e) => s+e.xp, 0), xpForLevel(4)]; }""")
+          == [1, -244, 356, 356])
+    # a pre-change install: level is derived, never stored
+    check("no level field is ever persisted",
+          "\"level\"" not in page.evaluate("localStorage.getItem('level.v2')"))
+    check("no JS errors in the curve/cap flow", not qerr, qerr)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
