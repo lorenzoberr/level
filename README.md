@@ -139,8 +139,11 @@ Seven tabs along the bottom, each with one job:
   hero carries a small "goal 80" marker until you get there. Nothing
   counts past 100,000: the log keeps the truth, the display stops at the
   summit.
-- Pace is measured from "Counting from" in Settings (set to your first launch)
-  to the deadline.
+- Your target is a level (1-100, normally 80) by a deadline, both set at
+  first open and under Settings. The hero shows how many levels you are in
+  ("level 23 / 80") and pace advice in XP per day is computed from what that
+  level costs on the curve. Pace is measured from "Counting from" in
+  Settings (set to your first launch) to the deadline.
 - Editing a habit's XP does not rewrite past entries; history stays as it was.
   Editing a completed objective's XP does update its one entry, so the total
   stays consistent.

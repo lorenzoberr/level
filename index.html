@@ -570,7 +570,7 @@ function seed(){
     goals:[],
     tasks:[],
     log:[],
-    target:10000,
+    targetLevel:GOAL_LEVEL,   // the custom target is a LEVEL (1-100), not an XP figure
     deadline:localISO(new Date(y,11,31)),
     start:todayISO(),
     reminders:{times:['15:00','18:00','21:00'],badge:true},
@@ -658,7 +658,11 @@ function normalise(d){
     seenBonus.add(k); return true;
   });
 
-  out.target=clampInt(d.target,1,100000000)||s.target;
+  // the custom target is now a LEVEL. Old installs stored an XP figure in
+  // `target`; any such install migrates to a target level of 80, keeping its
+  // deadline and start date exactly as they were (handled just below).
+  const tl=clampInt(d.targetLevel,1,LEVEL_CAP);
+  out.targetLevel=tl!==null?tl:GOAL_LEVEL;
   out.deadline=isValidISO(d.deadline)?d.deadline:s.deadline;
   out.start=isValidISO(d.start)?d.start:todayISO();
   // goal.done / task.done must agree with the log
@@ -783,6 +787,9 @@ let charAnim='';
 function totalXP(){return state.log.reduce((s,e)=>s+e.xp,0);}
 // what levels and the hero read: the log's sum, never shown past the cap
 const cappedXP=()=>Math.min(totalXP(),XP_CAP);
+// the XP the user's target level costs - pace maths run on this internally,
+// while the target itself displays as a level
+const targetXP=()=>xpForLevel(state.targetLevel);
 function xpOn(iso){return state.log.filter(e=>e.date===iso).reduce((s,e)=>s+e.xp,0);}
 function entriesOn(iso){return state.log.filter(e=>e.date===iso).sort((a,b)=>a.at-b.at);}
 function loggedOn(habitId,iso){return state.log.filter(e=>e.type==='habit'&&e.refId===habitId&&e.date===iso);}
@@ -1302,15 +1309,15 @@ function deleteGoal(id){
 
 /* ---- target / data ---- */
 function saveTarget(){
-  const v=intIn(document.getElementById('f-target').value,1,100000000);
+  const v=intIn(document.getElementById('f-target').value,1,LEVEL_CAP);
   const d=document.getElementById('f-deadline').value;
   const s=document.getElementById('f-start').value;
-  if(v===null) return toast('Target must be a whole number, 1 or more');
+  if(v===null) return toast('Target level must be a whole number, 1 to 100');
   if(!isValidISO(d)) return toast('Pick a valid deadline');
   if(!isValidISO(s)) return toast('Pick a valid start date');
   if(dayDiff(s,d)<=0) return toast('Deadline must be after the start date');
-  state.target=v;state.deadline=d;state.start=s;
-  save();render();toast('Target saved');
+  state.targetLevel=v;state.deadline=d;state.start=s;
+  save();render();toast('Target: level '+v+' by '+fmtShort(d));
 }
 async function exportData(){
   const json=JSON.stringify(state,null,2);
@@ -1397,17 +1404,21 @@ function characterSVG(L){
 ================================================================== */
 function heroHTML(){
   const xp=cappedXP(),L=levelInfo(xp),s=streak(),t=todayISO();
-  const yearPct=Math.max(0,Math.min(100,xp/state.target*100));
+  const TL=state.targetLevel,tXP=targetXP();
+  // the thin bar tracks LEVEL progress toward the target level: fractional
+  // levels climbed over levels needed, not XP over an XP figure
+  const Lfrac=L.level+(L.need?L.into/L.need:0);
+  const yearPct=TL>1?Math.max(0,Math.min(100,(Lfrac-1)/(TL-1)*100)):100;
   const span=dayDiff(state.start,state.deadline);
   const elapsed=dayDiff(state.start,t);
   const daysLeft=Math.max(0,dayDiff(t,state.deadline));
-  const perDay=daysLeft>0?Math.ceil(Math.max(0,state.target-xp)/daysLeft):0;
+  const perDay=daysLeft>0?Math.ceil(Math.max(0,tXP-xp)/daysLeft):0;
   let pace;
-  if(xp>=state.target) pace='Target reached.';
-  else if(daysLeft===0) pace='Deadline reached. Set a new target under Manage.';
+  if(L.level>=TL) pace='Level '+TL+' reached.';
+  else if(daysLeft===0) pace='Deadline reached. Set a new target under Settings.';
   else if(elapsed<=0||span<=0) pace='Starts today. '+fmt(perDay)+' XP a day gets you there.';
   else{
-    const expected=Math.round(state.target*Math.min(1,elapsed/span));
+    const expected=Math.round(tXP*Math.min(1,elapsed/span));
     const diff=xp-expected;
     pace=(diff>=0?fmt(diff)+' XP ahead of pace. ':fmt(-diff)+' XP behind pace. ')+fmt(perDay)+' XP a day for '+daysLeft+' day'+(daysLeft===1?'':'s')+'.';
   }
@@ -1416,7 +1427,7 @@ function heroHTML(){
     <div class="hero-row">
       <div class="hero-text">
         ${state.name?`<div class="hname">${esc(state.name)}</div>`:''}
-        <div class="lvl">Level ${L.level} <span>&middot; ${tierName(L.level)}</span><span class="goal80${L.level>=GOAL_LEVEL?' met':''}">${L.level>=GOAL_LEVEL?'goal 80 &#10003;':'goal 80'}</span></div>
+        <div class="lvl">Level ${L.level} <span>&middot; ${tierName(L.level)}</span><span class="goal80${L.level>=state.targetLevel?' met':''}">${L.level>=state.targetLevel?'goal '+state.targetLevel+' &#10003;':'goal '+state.targetLevel}</span></div>
         <div class="total num">${fmt(xp)}</div>
         <div class="totlab">total XP</div>
         <div class="streak">${s?s+' day streak':'No streak yet'}</div>
@@ -1431,8 +1442,8 @@ function heroHTML(){
         <span class="num">${fmt(L.ceil-xp)} XP to level ${L.level+1}</span>`}</div>
     </div>
     <div class="yearbox">
-      <div class="yearhead"><b>Target by ${fmtShort(state.deadline)}</b>
-        <span class="num">${fmt(xp)} / ${fmt(state.target)}</span></div>
+      <div class="yearhead"><b>Level ${TL} by ${fmtShort(state.deadline)}</b>
+        <span class="num">level ${L.level} / ${TL}</span></div>
       <div class="bar thin"><i style="width:${yearPct.toFixed(2)}%"></i></div>
       <div class="pace">${pace}</div>
     </div>
@@ -1933,12 +1944,12 @@ function headroomEstimate(){
 function headroomHTML(){
   if(!state.habits.length&&!state.goals.length) return '';
   const e=headroomEstimate();
-  const hot=e.realistic>state.target*0.7;
+  const hot=e.realistic>targetXP()*0.7;
   const lvl=levelInfo(e.realistic).level;
   return `<div class="note ${hot?'warn':''}" style="margin-top:14px">
     At realistic consistency (habits 75%, objectives half), the recurring list
-    commits about <b class="num">${fmt(e.realistic)} XP</b> of your
-    <span class="num">${fmt(state.target)}</span> target by ${esc(fmtShort(state.deadline))};
+    commits about <b class="num">${fmt(e.realistic)} XP</b> of the
+    <span class="num">${fmt(targetXP())}</span> XP that level ${state.targetLevel} costs, by ${esc(fmtShort(state.deadline))};
     at full consistency with every objective met it tops out at
     <b class="num">${fmt(e.max)} XP</b>.${hot
       ?` That alone may make level ${lvl} easy - consider trimming the list or lowering some XP.`
@@ -1951,7 +1962,7 @@ function headroomHTML(){
    target asks for, what went well, and what slipped - said kindly,
    but said.
 ================================================================== */
-const paceNeedPerDay=()=>{const span=dayDiff(state.start,state.deadline);return span>0?state.target/span:0;};
+const paceNeedPerDay=()=>{const span=dayDiff(state.start,state.deadline);return span>0?targetXP()/span:0;};
 const xpBetween=(a,b)=>state.log.filter(e=>e.date>=a&&e.date<=b).reduce((s,e)=>s+e.xp,0);
 const monthStart=iso=>iso.slice(0,8)+'01';
 const monthEnd=iso=>{const d=parseLocal(iso);return localISO(new Date(d.getFullYear(),d.getMonth()+1,0));};
@@ -1997,13 +2008,13 @@ function viewProgress(){
   // ---- headline + verdict ----
   const xp=totalXP();
   const daysLeftAll=Math.max(0,dayDiff(t,state.deadline));
-  const perDayCatch=daysLeftAll>0?Math.ceil(Math.max(0,state.target-xp)/daysLeftAll):0;
+  const perDayCatch=daysLeftAll>0?Math.ceil(Math.max(0,targetXP()-xp)/daysLeftAll):0;
   let say;
   if(perDay<=0) say='Set the target and deadline under Settings and this page will measure you against them.';
-  else if(xp>=state.target) say='<b>Target reached.</b> Everything from here is a victory lap - set a new one under Settings when ready.';
+  else if(xp>=targetXP()) say='<b>Level '+state.targetLevel+' reached.</b> Everything from here is a victory lap - set a new target under Settings when ready.';
   else{
     const diff=earned-need;
-    if(diff>=0) say=`That is <b>${fmt(diff)} XP ahead</b> of the pace your target asks for. Keep this up and the ${fmt(state.target)} lands early.`;
+    if(diff>=0) say=`That is <b>${fmt(diff)} XP ahead</b> of the pace your target asks for. Keep this up and level ${state.targetLevel} lands early.`;
     else say=`That is <b>${fmt(-diff)} XP short</b> of pace ${label} - no drama. From today, about <b>${fmt(perDayCatch)} XP a day</b> still lands the target by ${esc(fmtShort(state.deadline))}.`;
   }
 
@@ -2340,7 +2351,7 @@ function viewSetup(){
     </div>
     <div class="form"><h3>Your target</h3>
       <div class="two">
-        <div class="field"><label for="f-su-target">XP to earn</label><input id="f-su-target" type="number" inputmode="numeric" min="1" step="1" value="10000"></div>
+        <div class="field"><label for="f-su-target">Target level (1-100)</label><input id="f-su-target" type="number" inputmode="numeric" min="1" max="100" step="1" value="80"></div>
         <div class="field"><label for="f-su-deadline">By when</label><input id="f-su-deadline" type="date" value="${localISO(new Date(y,11,31))}"></div>
       </div>
       <div style="font-size:12.5px;color:var(--muted)">No idea yet? Keep the defaults - everything here changes any time under Settings.</div>
@@ -2354,19 +2365,19 @@ function viewSetup(){
 function finishSetup(){
   const name=(document.getElementById('f-su-name').value||'').trim().slice(0,30);
   const catName=(document.getElementById('f-su-cat').value||'').trim().slice(0,40);
-  const target=intIn(document.getElementById('f-su-target').value,1,100000000);
+  const target=intIn(document.getElementById('f-su-target').value,1,LEVEL_CAP);
   const dl=document.getElementById('f-su-deadline').value;
   const wRaw=(document.getElementById('f-su-weight').value||'').trim();
   if(!name){toast('Tell it your name first');const el=document.getElementById('f-su-name');if(el)el.focus();return;}
   if(!catName) return toast('Name your first section');
-  if(target===null) return toast('Target must be a whole number, 1 or more');
+  if(target===null) return toast('Target level between 1 and 100');
   if(!isValidISO(dl)||dayDiff(todayISO(),dl)<=0) return toast('Pick a deadline after today');
   let wg=null;
   if(wRaw){wg=kgIn(wRaw);if(wg===null) return toast('Weight goal between 20 and 300 kg, or leave it empty');}
   state.name=name;
   state.cats=[{id:uid(),name:catName,color:pickedColor}];
   state.lastTaskCat=state.cats[0].id;
-  state.target=target;state.deadline=dl;state.start=todayISO();
+  state.targetLevel=target;state.deadline=dl;state.start=todayISO();
   state.weight.goal=wg;
   state.setup=true;
   save();
@@ -2383,7 +2394,8 @@ function viewSettings(){
       <button class="btn primary" data-act="save-name">Save name</button>
     </div>
     <div class="form"><h3>Target</h3>
-      <div class="field"><label for="f-target">XP goal</label><input id="f-target" type="number" inputmode="numeric" min="1" step="1" value="${state.target}"></div>
+      <div class="field"><label for="f-target">Target level (1-100)</label><input id="f-target" type="number" inputmode="numeric" min="1" max="100" step="1" value="${state.targetLevel}"></div>
+      <div style="font-size:12.5px;color:var(--muted);margin:-4px 0 10px">Level ${state.targetLevel} costs ${fmt(targetXP())} XP on the curve.</div>
       <div class="two">
         <div class="field"><label for="f-start">Counting from</label><input id="f-start" type="date" value="${state.start}"></div>
         <div class="field"><label for="f-deadline">Deadline</label><input id="f-deadline" type="date" value="${state.deadline}"></div>

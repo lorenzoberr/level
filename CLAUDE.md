@@ -27,9 +27,16 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Architecture (index.html)
 
-- State: `{setup, name, cats, habits, goals, tasks, log, target, deadline,
-  start, reminders, theme, hideDone, penaltyPaused, penaltyFrom, lastBackup,
-  weight, finance, lastTaskCat}`.
+- State: `{setup, name, cats, habits, goals, tasks, log, targetLevel,
+  deadline, start, reminders, theme, hideDone, penaltyPaused, penaltyFrom,
+  lastBackup, weight, finance, lastTaskCat}`.
+  - The custom target is a LEVEL (`targetLevel`, 1-100, default 80), not an
+    XP figure; `targetXP()` = `xpForLevel(targetLevel)` is what the pace
+    maths run on internally. normalise() migrates any old XP-figure `target`
+    to level 80, keeping `deadline` and `start` untouched. The hero shows
+    "Level TL by <deadline>" with "level N / TL", its thin bar tracks
+    fractional LEVEL progress toward the target level, and the goal chip
+    follows `targetLevel` (GOAL_LEVEL is only the default).
   - **Fresh installs are empty.** `seed()` ships no habits, goals or entries -
     one placeholder section only (the code assumes at least one cat). With
     `setup:false`, `render()` shows the first-open welcome flow instead of the
@@ -173,7 +180,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 316 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 324 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.

@@ -291,15 +291,22 @@ with sync_playwright() as p:
 
     # ---------- settings tab: target & data ----------
     page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(50)
-    page.fill("#f-target", "5000")
+    check("target field is a level, migrated default 80",
+          "Target level" in page.inner_text("#view") and page.input_value("#f-target") == "80")
+    page.fill("#f-target", "0")
+    page.locator("button[data-act=save-target]").click(); page.wait_for_timeout(50)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("rejects a level outside 1-100", d["targetLevel"] == 80)
+    page.fill("#f-target", "90")
     page.fill("#f-deadline", "2026-09-01")
     page.locator("button[data-act=save-target]").click(); page.wait_for_timeout(50)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
-    check("rejects deadline before start", d["target"] == 10000)
+    check("rejects deadline before start", d["targetLevel"] == 80)
     page.fill("#f-deadline", "2026-12-31")
     page.locator("button[data-act=save-target]").click(); page.wait_for_timeout(50)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
-    check("saves valid target", d["target"] == 5000)
+    check("saves valid target level, dates kept",
+          d["targetLevel"] == 90 and d["deadline"] == "2026-12-31" and d["start"] == "2026-09-07")
     check("persistence note shown (not preview warning)", page.locator(".note.warn").count() == 0)
     check("default reminder times listed", [c.inner_text().strip("×").strip() for c in page.locator(".timechip").all()] == ["15:00", "18:00", "21:00"])
     page.locator(".timechip", has_text="18:00").locator("button").click(); page.wait_for_timeout(50)
@@ -320,7 +327,9 @@ with sync_playwright() as p:
     # home after edits
     page.locator("button[data-act=tab][data-id=home]").click()
     page.wait_for_selector(".hero")
-    check("pace line mentions days left", "day" in page.inner_text(".pace") and "5,000" in page.inner_text(".yearhead"))
+    check("pace line mentions days left; the target shows as levels",
+          "day" in page.inner_text(".pace") and "Level 90 by 31 Dec 2026" in page.inner_text(".yearhead")
+          and "/ 90" in page.inner_text(".yearhead"), page.inner_text(".yearhead"))
     page.screenshot(path="shots/home_after.png", full_page=True)
     check("no JS errors through whole flow", not errors, errors)
     ctx.close()
@@ -786,15 +795,15 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: perr.append(str(e)))
     page.clock.install(time=datetime.datetime(2026, 9, 12, 10, 0, 0, tzinfo=ROME))  # Saturday
     demo_boot(page)
-    # deterministic history: target 10000 from 13 Aug to 31 Dec = 140 days, ~71.4/day
+    # deterministic history: target LEVEL 20 (5,076 XP) over 13 Aug - 31 Dec = 140 days, ~36.26/day
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
-        s.target = 10000; s.start = '2026-08-13'; s.deadline = '2026-12-31';
+        s.targetLevel = 20; s.start = '2026-08-13'; s.deadline = '2026-12-31';
         s.habits.find(h => h.id === 'h1').mode = 'weekly';
         s.habits.find(h => h.id === 'h1').perWeek = 3;
         s.habits.find(h => h.id === 'h1').bonus = 60;
         let n = 0; const put = (type, refId, name, xp, date) =>
           s.log.push({id: 'p' + (n++), type, refId, name, xp, date, at: n});
-        // this week (Mon 7 - Sat 12): 470 XP, pace needs round(71.43*6)=429
+        // this week (Mon 7 - Sat 12): 470 XP, pace needs round(36.257*6)=218
         for (const d of ['2026-09-07', '2026-09-09', '2026-09-11']) put('habit', 'h1', 'Gym session', 50, d);
         put('bonus', 'h1', 'Gym session — 3× in a week', 60, '2026-09-11');
         for (const d of ['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11']) put('habit', 'h3', 'Study 2 hours', 30, d);
@@ -810,11 +819,12 @@ with sync_playwright() as p:
     page.locator("button[data-act=tab][data-id=progress]").click(); page.wait_for_timeout(80)
     check("week is the default period", page.locator("button[data-act=prog][data-id=week]").get_attribute("aria-pressed") == "true")
     check("weekly XP against the pace the target asks for",
-          "470" in page.inner_text(".prognum") and "asks for about 429" in page.inner_text(".proglab"), page.inner_text(".proglab"))
+          "470" in page.inner_text(".prognum") and "asks for about 218" in page.inner_text(".proglab"), page.inner_text(".proglab"))
     check("last week comparison shown", "Last week: 540 XP" in page.inner_text(".proglab"), page.inner_text(".proglab"))
-    check("evaluative verdict: ahead of pace", "41 XP ahead" in page.inner_text(".progsay"), page.inner_text(".progsay"))
+    check("evaluative verdict: ahead of pace, target named as a level",
+          "252 XP ahead" in page.inner_text(".progsay") and "level 20 lands early" in page.inner_text(".progsay"), page.inner_text(".progsay"))
     svg = page.locator(".wchart svg")
-    check("seven bars with the pace line drawn across", svg.locator("rect").count() == 7 and "pace 71/day" in svg.text_content())
+    check("seven bars with the pace line drawn across", svg.locator("rect").count() == 7 and "pace 36/day" in svg.text_content())
     wins = page.locator(".pitem.win").all_inner_texts()
     check("wins: weekly bonus and best day celebrated",
           any("Weekly target hit" in w for w in wins) and any("Best day" in w for w in wins), wins)
@@ -1070,7 +1080,7 @@ with sync_playwright() as p:
     page.fill("#f-su-name", "Lorenzo")
     page.fill("#f-su-cat", "Fitness")
     page.locator(".sw[data-id='#22C55E']").click()
-    page.fill("#f-su-target", "8000")
+    page.fill("#f-su-target", "90")
     page.fill("#f-su-deadline", "2026-12-31")
     page.fill("#f-su-weight", "71")
     page.locator("button[data-act=finish-setup]").click(); page.wait_for_timeout(100)
@@ -1079,7 +1089,7 @@ with sync_playwright() as p:
           and page.locator(".secbox .sechead b", has_text="Fitness").count() == 1)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("everything from the form landed in state",
-          d["setup"] is True and d["name"] == "Lorenzo" and d["target"] == 8000
+          d["setup"] is True and d["name"] == "Lorenzo" and d["targetLevel"] == 90
           and d["deadline"] == "2026-12-31" and d["start"] == "2026-09-14"
           and d["weight"]["goal"] == 71 and len(d["cats"]) == 1
           and d["cats"][0]["name"] == "Fitness" and d["cats"][0]["color"] == "#22C55E", d)
@@ -1281,7 +1291,7 @@ with sync_playwright() as p:
 
     # headroom advisory: quiet below 70% of the target, warns above it
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
-        s.target = 100000; s.start = '2026-09-01'; s.deadline = '2026-12-31';  // 122 days, 18 weeks
+        s.targetLevel = 100; s.start = '2026-09-01'; s.deadline = '2026-12-31';  // 100,000 XP; 122 days, 18 weeks
         s.habits = [{id:'hA',name:'Study',xp:100,mode:'daily',cat:'c-fit'},
                     {id:'hB',name:'Deep work',xp:600,mode:'daily',cat:'c-fit'},
                     {id:'hC',name:'Gym',xp:110,mode:'weekly',perWeek:3,bonus:70,cat:'c-fit'}];
@@ -1460,6 +1470,36 @@ with sync_playwright() as p:
     check("no level field is ever persisted",
           "\"level\"" not in page.evaluate("localStorage.getItem('level.v2')"))
     check("no JS errors in the curve/cap flow", not qerr, qerr)
+    ctx.close()
+
+    # ---------- 3r. target is a level ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    rerr = []
+    page.on("pageerror", lambda e: rerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))
+    page.goto(URL)
+    # an old install with an XP-figure target and its own dates
+    page.evaluate("""() => localStorage.setItem('level.v2', JSON.stringify({
+        setup: true, name: 'Lorenzo',
+        cats: [{id:'c1',name:'Fitness',color:'#22C55E'}],
+        target: 100000, deadline: '2027-05-31', start: '2026-09-13',
+        log: [{id:'a',type:'habit',refId:'h',name:'S',xp:5100,date:'2026-09-15',at:1}]}))""")
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("old XP-figure target migrates to level 80, dates untouched",
+          d["targetLevel"] == 80 and "target" not in d
+          and d["deadline"] == "2027-05-31" and d["start"] == "2026-09-13", d.get("targetLevel"))
+    # progress toward the target displays as levels (5,100 XP = level 20)
+    check("hero shows current level toward target level",
+          "Level 80 by 31 May 2027" in page.inner_text(".yearhead")
+          and "level 20 / 80" in page.inner_text(".yearhead"), page.inner_text(".yearhead"))
+    check("the goal chip follows the target level", page.inner_text(".goal80").strip() == "goal 80")
+    check("the thin bar tracks level progress toward the target",
+          0 < float(page.evaluate("document.querySelectorAll('.bar.thin > i')[0].style.width.replace('%','')")) < 30)
+    # a fresh install defaults to 80 in the onboarding form (covered above) and in seed
+    check("seed defaults the target level to 80", page.evaluate("() => seed().targetLevel") == 80)
+    check("no JS errors in the target-level flow", not rerr, rerr)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
