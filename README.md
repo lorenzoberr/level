@@ -191,3 +191,10 @@ small footnote estimating how much of your target the recurring list already
 commits at realistic consistency - it turns amber if your habits alone would
 carry you most of the way, which usually means individual XP values are
 inflated.
+
+A category can optionally be split into subcategories — Groceries into
+Supermarket, Lunches, Coffee — from its Edit form. The category keeps its one
+budget, one direction and one XP; the parts just add up. Each sub gets its own
+spend field for the month and the parent shows the running total judged
+against the budget as usual. A sub left blank contributes nothing; the
+category is only skipped at close-out if every sub is blank.

@@ -1307,6 +1307,95 @@ with sync_playwright() as p:
     check("no JS errors in the suggestion flow", not serr, serr)
     ctx.close()
 
+    # ---------- 3o. finance subcategories ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    suberr = []
+    page.on("pageerror", lambda e: suberr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    fin_boot(page)   # FIN_DEMO has no subs anywhere: a pre-subcategory install
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("pre-subcategory install loads unchanged, subs repaired to empty",
+          all(c["subs"] == [] for c in d["finance"]["categories"]), d["finance"]["categories"])
+    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
+
+    # a no-subs category still takes its spend directly (unchanged behaviour)
+    inv = page.locator(".finrow", has_text="Investing").locator("input.finspent")
+    inv.fill("100"); inv.press("Enter"); page.wait_for_timeout(60)
+    check("no-subs category behaves exactly as before",
+          "target met" in page.locator(".finrow", has_text="Investing").inner_text())
+
+    # add two subs to Groceries through the form
+    page.locator("button[data-act=fin-edit][data-id='f1']").click(); page.wait_for_timeout(50)
+    page.locator("button[data-act=fc-sub-add]").click()
+    page.locator("button[data-act=fc-sub-add]").click()
+    page.locator("#f-fc-subs .subrow input").nth(0).fill("Supermarket")
+    page.locator("#f-fc-subs .subrow input").nth(1).fill("Lunches")
+    page.locator("button[data-act=fin-save]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    g = [c for c in d["finance"]["categories"] if c["id"] == "f1"][0]
+    check("subcategories added", [sb["name"] for sb in g["subs"]] == ["Supermarket", "Lunches"], g["subs"])
+    grow = page.locator(".finrow", has_text="Groceries").first
+    check("parent input replaced by a derived read-only figure",
+          grow.locator("input.finspent").count() == 0 and page.locator(".finrow.finsub").count() == 2)
+
+    # all-blank subs: the parent is not recorded (skipped at close-out)
+    check("all-blank subs leave the parent unrecorded",
+          "2 of 3 categories recorded" not in page.inner_text("#view")
+          and "1 of 3 categories recorded" in page.inner_text("#view"))   # only Investing so far
+
+    # one entered sub judges the parent on the derived total
+    sub = lambda name: page.locator(".finrow.finsub", has_text=name).locator("input.finspent")
+    sub("Supermarket").fill("180,50"); sub("Supermarket").press("Enter"); page.wait_for_timeout(60)
+    check("parent derives the sum and gets judged",
+          "£180.50" in grow.inner_text() and "£69.50 under" in grow.inner_text()
+          and "2 of 3 categories recorded" in page.inner_text("#view"))
+    # an explicit sub 0 is a real value in the sum; blank removes it again
+    sub("Lunches").fill("0"); sub("Lunches").press("Enter"); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    sids = {sb["name"]: sb["id"] for sb in g["subs"]}
+    check("sub-level zero stored as a real 0", d["finance"]["months"]["2026-09"]["spent"][sids["Lunches"]] == 0)
+    sub("Lunches").fill(""); sub("Lunches").press("Enter"); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("blanking a sub removes it from the map, derived total unchanged",
+          sids["Lunches"] not in d["finance"]["months"]["2026-09"]["spent"]
+          and "£180.50" in grow.inner_text())
+
+    # close-out judges the derived total; sum of winners only
+    sub("Lunches").fill("80"); sub("Lunches").press("Enter"); page.wait_for_timeout(60)   # 260.50 > 250: fails
+    page.locator("button[data-act=fin-close]").click(); page.wait_for_timeout(100)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("derived overspend fails the parent (only Investing pays)",
+          d["finance"]["months"]["2026-09"]["awarded"] == 60)
+    page.locator("button[data-act=fin-reopen]").click(); page.wait_for_timeout(80)
+
+    # deleting a sub clears its spends from all months; renaming keeps the rest
+    page.locator("button[data-act=fin-prev]").click(); page.wait_for_timeout(60)
+    sub("Lunches").fill("33"); sub("Lunches").press("Enter"); page.wait_for_timeout(60)   # an August sub spend
+    page.locator("button[data-act=fin-next]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=fin-edit][data-id='f1']").click(); page.wait_for_timeout(50)
+    page.locator("#f-fc-subs .subrow").filter(has=page.locator('input[value="Lunches"]')) \
+        .locator("button[data-act=fc-sub-del]").click(); page.wait_for_timeout(40)
+    page.locator("#f-fc-subs .subrow input").nth(0).fill("Big shop")
+    page.locator("button[data-act=fin-save]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    g = [c for c in d["finance"]["categories"] if c["id"] == "f1"][0]
+    check("sub renamed and the other deleted",
+          [sb["name"] for sb in g["subs"]] == ["Big shop"], g["subs"])
+    check("deleted sub's spends cleared from every month, sibling's kept",
+          all(sids["Lunches"] not in m["spent"] for m in d["finance"]["months"].values())
+          and d["finance"]["months"]["2026-09"]["spent"][sids["Supermarket"]] == 180.5)
+
+    # deleting the parent takes its subs' spends too
+    page.locator("button[data-act=fin-del][data-id='f1']").click(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("parent delete clears sub spends everywhere",
+          all(sids["Supermarket"] not in m["spent"] for m in d["finance"]["months"].values())
+          and len(d["finance"]["categories"]) == 2)
+    check("no JS errors in the subcategory flow", not suberr, suberr)
+    ctx.close()
+
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()

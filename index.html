@@ -352,6 +352,14 @@
   .finseg button{flex:1;padding:10px 8px;border:1px solid var(--line-2);border-radius:11px;
     font-size:13px;font-weight:600;color:var(--muted);background:var(--input-bg);text-align:left;line-height:1.35}
   .finseg button b{display:block;color:var(--ink);font-weight:700}
+  .subrow{display:flex;gap:6px;margin-bottom:6px}
+  .subrow input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line-2);border-radius:10px;
+    background:var(--input-bg);font-size:15px;min-height:40px;-webkit-appearance:none;appearance:none}
+  .subrow input:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
+  .subrow button{flex:0 0 36px;border:1px solid var(--line-2);border-radius:10px;color:var(--muted);
+    font-size:17px;background:var(--input-bg)}
+  .finrow.finsub{min-height:46px;margin-left:16px;border-left:2px solid var(--line);padding-left:10px;border-radius:0}
+  .finrow.finsub .name{font-size:14px;font-weight:500}
   .finseg button[aria-pressed="true"]{border-color:var(--hero-b);outline:2px solid var(--hero-b);outline-offset:-2px}
 
   /* ---------- progress ---------- */
@@ -677,10 +685,14 @@ function normalise(d){
         id:String(c.id||uid()),name:String(c.name||'Untitled').slice(0,40),
         budget:numGBP(c.budget)!==null?numGBP(c.budget):0,
         xp:(v=>v===null?0:v)(clampInt(c.xp,0,100000)),
-        dir:c.dir==='over'?'over':'under'})),
+        dir:c.dir==='over'?'over':'under',
+        // optional spending breakdown; empty means no subs, unchanged behaviour
+        subs:(Array.isArray(c.subs)?c.subs:[]).filter(sb=>sb&&typeof sb==='object')
+          .map(sb=>({id:String(sb.id||uid()),name:String(sb.name||'Untitled').slice(0,40)}))})),
     months:{}
   };
   const finCatIds=new Set(out.finance.categories.map(c=>c.id));
+  for(const c of out.finance.categories) for(const sb of c.subs) finCatIds.add(sb.id);
   if(fsrc.months&&typeof fsrc.months==='object'){
     for(const ym of Object.keys(fsrc.months)){
       if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) continue;
@@ -2069,16 +2081,27 @@ function finRecW(ym){
   if(!state.finance.months[ym]) state.finance.months[ym]={spent:{},closed:false,awarded:0};
   return state.finance.months[ym];
 }
-// Judge a month against today's category definitions. Absent from `spent`
-// means skipped; equal-to-budget always succeeds, whichever the direction.
+// A category's spent for a month. With subcategories, the parent's figure is
+// DERIVED: the sum of the subs that have a value, and it counts as recorded
+// only if at least one sub does (blank subs contribute nothing). The parent's
+// own spent key is ignored while subs exist. Without subs, unchanged.
+function finSpentOf(c,m){
+  if(c.subs&&c.subs.length){
+    const entered=c.subs.filter(sb=>sb.id in m.spent);
+    return {has:entered.length>0,sp:entered.reduce((s,sb)=>s+m.spent[sb.id],0)};
+  }
+  return {has:c.id in m.spent,sp:c.id in m.spent?m.spent[c.id]:0};
+}
+// Judge a month against today's category definitions. Unrecorded means
+// skipped; equal-to-budget always succeeds, whichever the direction.
 function finJudge(ym){
   const m=finRec(ym);
   let sum=0,judged=0;const wins=[],fails=[];
   for(const c of state.finance.categories){
-    if(!(c.id in m.spent)) continue;
+    const d=finSpentOf(c,m);
+    if(!d.has) continue;
     judged++;
-    const sp=m.spent[c.id];
-    const ok=c.dir==='over'?sp>=c.budget:sp<=c.budget;
+    const ok=c.dir==='over'?d.sp>=c.budget:d.sp<=c.budget;
     if(ok){sum+=c.xp;wins.push(c.name);}else fails.push(c.name);
   }
   return {sum,judged,wins,fails};
@@ -2093,7 +2116,7 @@ function saveIncome(){
 function saveSpent(cid,val){
   const m=state.finance.months[finMonth];
   if(m&&m.closed) return;                            // read-only once closed
-  if(!state.finance.categories.some(c=>c.id===cid)) return;
+  if(!state.finance.categories.some(c=>c.id===cid||(c.subs||[]).some(sb=>sb.id===cid))) return;
   const raw=String(val??'').trim();
   if(raw===''){                                      // blank = not recorded
     if(m&&cid in m.spent){delete m.spent[cid];save();}
@@ -2111,12 +2134,24 @@ function saveFinCat(){
   if(!name) return toast('Give it a name');
   if(budget===null) return toast('Budget between £0 and £10,000,000');
   if(xp===null) return toast('XP must be a whole number between 0 and 100,000');
+  // subcategories are staged in the DOM until save: rows keep their sub id,
+  // new rows get one here, blank-named rows count as removed
+  const subRows=[...document.querySelectorAll('#f-fc-subs .subrow')].map(r=>({
+    id:r.dataset.subid||uid(),
+    name:(r.querySelector('input').value||'').trim().slice(0,40)
+  })).filter(sb=>sb.name);
   if(editing&&editing.type==='fincat'){
     const c=state.finance.categories.find(x=>x.id===editing.id);
-    if(c) Object.assign(c,{name,budget,xp,dir:pickedDir});
+    if(c){
+      // spends of subs that no longer exist go with them, in every month
+      const kept=new Set(subRows.map(sb=>sb.id));
+      for(const old of (c.subs||[])) if(!kept.has(old.id))
+        for(const ym of Object.keys(state.finance.months)) delete state.finance.months[ym].spent[old.id];
+      Object.assign(c,{name,budget,xp,dir:pickedDir,subs:subRows});
+    }
     editing=null;toast('Category updated');
   }else{
-    state.finance.categories.push({id:uid(),name,budget,xp,dir:pickedDir});
+    state.finance.categories.push({id:uid(),name,budget,xp,dir:pickedDir,subs:subRows});
     adding=null;toast('Category added');
   }
   save();render();
@@ -2125,7 +2160,10 @@ function deleteFinCat(id){
   const c=state.finance.categories.find(x=>x.id===id); if(!c) return;
   if(!confirm('Delete "'+c.name+'"? Its spent figures disappear from every month. XP already awarded at close-out stays.')) return;
   state.finance.categories=state.finance.categories.filter(x=>x.id!==id);
-  for(const ym of Object.keys(state.finance.months)) delete state.finance.months[ym].spent[id];
+  for(const ym of Object.keys(state.finance.months)){
+    delete state.finance.months[ym].spent[id];
+    for(const sb of (c.subs||[])) delete state.finance.months[ym].spent[sb.id];
+  }
   if(editing&&editing.type==='fincat'&&editing.id===id) editing=null;
   save();render();toast('Category deleted');
 }
@@ -2162,6 +2200,12 @@ function finCatFormHTML(ed){
       <div class="field"><label for="f-fc-budget">Monthly budget (£)</label><input id="f-fc-budget" inputmode="decimal" placeholder="250" autocomplete="off" value="${ed?ed.budget:''}"></div>
       <div class="field"><label for="f-fc-xp">XP when met</label><input id="f-fc-xp" type="number" inputmode="numeric" min="0" step="1" value="${ed?ed.xp:50}"></div>
     </div>
+    <div class="field"><label>Subcategories (optional)</label>
+      <div id="f-fc-subs">${(ed&&ed.subs?ed.subs:[]).map(sb=>
+        `<div class="subrow" data-subid="${esc(sb.id)}"><input value="${esc(sb.name)}" maxlength="40" autocomplete="off" aria-label="Subcategory name"><button data-act="fc-sub-del" aria-label="Remove subcategory">&times;</button></div>`).join('')}</div>
+      <button class="mini dim" data-act="fc-sub-add" style="margin-top:2px">+ Add subcategory</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Split the month's spend into parts. The category keeps its one budget, direction and XP - the parts just add up.</div>
+    </div>
     <div class="field"><label>Direction</label>
       <div class="finseg">
         <button data-act="fin-dir" data-id="under" aria-pressed="${pickedDir==='under'}"><b>Spending</b>reward staying at or under</button>
@@ -2177,7 +2221,7 @@ function viewFinance(){
   const cats=state.finance.categories;
   const income=state.finance.income;
   const totB=cats.reduce((s,c)=>s+c.budget,0);
-  const totS=cats.reduce((s,c)=>s+(c.id in m.spent?m.spent[c.id]:0),0);
+  const totS=cats.reduce((s,c)=>s+finSpentOf(c,m).sp,0);
   const j=finJudge(ym);
   const head=`<div class="calhead">
       <button data-act="fin-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
@@ -2199,8 +2243,8 @@ function viewFinance(){
     </div>
   </div>`;
   const rows=cats.map(c=>{
-    const has=c.id in m.spent;
-    const sp=has?m.spent[c.id]:null;
+    const hasSubs=c.subs&&c.subs.length>0;
+    const {has,sp}=finSpentOf(c,m);
     let verdict='';
     if(has){
       const ok=c.dir==='over'?sp>=c.budget:sp<=c.budget;
@@ -2211,14 +2255,29 @@ function viewFinance(){
       verdict=` &middot; <span class="${ok?'fin-good':'fin-bad'}">${word}</span>`;
     }
     const ed=editing&&editing.type==='fincat'&&editing.id===c.id;
+    // with subs, the parent shows the derived total (never an input); the
+    // inputs live on the sub rows below it
+    const right=hasSubs||m.closed
+      ?`<span class="spentro num">${has?gbp(sp):'&mdash;'}</span>`
+      :`<input class="finspent num" data-finspent="${esc(c.id)}" inputmode="decimal" autocomplete="off" aria-label="Spent on ${esc(c.name)} this month" placeholder="£" value="${has?sp:''}">`;
+    const subRows=hasSubs?c.subs.map(sb=>{
+      const sHas=sb.id in m.spent;
+      const sv=sHas?m.spent[sb.id]:null;
+      const share=sHas&&sp>0?Math.round(sv/sp*100)+'% of the category':sHas?'counted':'not recorded';
+      return `<div class="row finrow finsub">
+        <div class="body"><div class="name">${esc(sb.name)}</div>
+          <div class="sub num">${share}</div></div>
+        ${m.closed
+          ?`<span class="spentro num">${sHas?gbp(sv):'&mdash;'}</span>`
+          :`<input class="finspent num" data-finspent="${esc(sb.id)}" inputmode="decimal" autocomplete="off" aria-label="Spent on ${esc(sb.name)} this month" placeholder="£" value="${sHas?sv:''}">`}
+      </div>`;
+    }).join(''):'';
     return `<div class="row finrow">
       <div class="body"><div class="name">${esc(c.name)}</div>
         <div class="sub num">${gbp(c.budget)} ${c.dir==='over'?'target':'budget'}${verdict}${c.xp?' &middot; '+fmt(c.xp)+' XP':''}</div></div>
-      ${m.closed
-        ?`<span class="spentro num">${has?gbp(sp):'&mdash;'}</span>`
-        :`<input class="finspent num" data-finspent="${esc(c.id)}" inputmode="decimal" autocomplete="off" aria-label="Spent on ${esc(c.name)} this month" placeholder="£" value="${has?sp:''}">`}
+      ${right}
       <div class="acts"><button data-act="fin-edit" data-id="${esc(c.id)}">Edit</button><button class="danger" data-act="fin-del" data-id="${esc(c.id)}">Delete</button></div>
-    </div>`+(ed?finCatFormHTML(c):'');
+    </div>`+subRows+(ed?finCatFormHTML(c):'');
   }).join('');
   const addBlock=adding&&adding.type==='fincat'
     ?finCatFormHTML(null)
@@ -2424,6 +2483,13 @@ const ACTIONS={
   'fin-del':id=>deleteFinCat(id),
   'fin-save':()=>saveFinCat(),
   'fin-dir':id=>{pickedDir=id==='over'?'over':'under';document.querySelectorAll('.finseg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===pickedDir));},
+  'fc-sub-add':()=>{const box=document.getElementById('f-fc-subs');if(!box)return;
+    box.insertAdjacentHTML('beforeend','<div class="subrow"><input maxlength="40" autocomplete="off" aria-label="Subcategory name" placeholder="e.g. Lunches"><button data-act="fc-sub-del" aria-label="Remove subcategory">&times;</button></div>');
+    const rows=box.querySelectorAll('.subrow');rows[rows.length-1].querySelector('input').focus();},
+  'fc-sub-del':(v,el)=>{const row=el.closest('.subrow');if(!row)return;
+    const name=(row.querySelector('input').value||'').trim();
+    if(row.dataset.subid&&!confirm('Remove "'+(name||'this subcategory')+'"? Its spent figures disappear from every month when you save.')) return;
+    row.remove();},
   'fin-close':ym=>closeFinMonth(ym),
   'fin-reopen':ym=>reopenFinMonth(ym),
   sugg:(v,el)=>{

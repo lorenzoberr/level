@@ -82,7 +82,16 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     success is spent>=budget; equal always succeeds). `months[YYYY-MM]` =
     `{spent:{catId:number},closed,awarded}` - absence from `spent` means "not
     recorded, skip at close-out"; an explicit 0 is judged. No rollover, no
-    per-purchase ledger, no link to habit sections. `finance` entries behave
+    per-purchase ledger, no link to habit sections. Categories may carry an
+    optional `subs` array `{id,name}` (default empty = unchanged behaviour):
+    a spending breakdown with NO own budget/direction/XP. With subs, the
+    parent's spent is DERIVED via `finSpentOf()` - the sum of subs that have
+    a value in the month's `spent` map (sub ids share that map) - and the
+    parent counts as recorded only if at least one sub does; its own spent
+    key is ignored (but preserved) while subs exist. Close-out judges the
+    derived total exactly as before. Deleting a sub (staged in the form's
+    DOM, applied at save) or its parent clears the sub's spends from every
+    month. `finance` entries behave
     like bonus/penalty: `undoLast()` skips them, `streak()` and
     `reconcilePenalties()` ignore them (money is never "logging"), the
     calendar shows them ("close-out") with no Remove. Reopening a closed month
@@ -155,7 +164,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 291 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 304 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.
