@@ -285,7 +285,7 @@
     backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
     border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20}
   .tabs > div{max-width:480px;margin:0 auto;display:flex}
-  .tabs button{flex:1;padding:10px 0 11px;font-size:11px;font-weight:600;color:var(--muted);
+  .tabs button{flex:1;padding:10px 0 11px;font-size:11.5px;font-weight:600;color:var(--muted);
     display:flex;flex-direction:column;align-items:center;gap:3px;min-height:56px}
   .tabs button svg{width:22px;height:22px}
   .tabs button[aria-current="true"]{color:var(--accent)}
@@ -335,6 +335,18 @@
   .mini{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg);margin-top:8px}
   .mini:active{opacity:.8}
   .mini.dim{background:transparent;color:var(--muted);font-weight:500;padding-left:2px}
+
+  /* ---------- home quick-nav + sub-screen header ---------- */
+  .quicknav{display:flex;gap:8px;margin:-6px 0 16px}
+  .quicknav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:10px 2px 9px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    font-size:11px;font-weight:600;color:var(--ink-soft)}
+  .quicknav button svg{width:21px;height:21px;color:var(--accent)}
+  .quicknav button:active{background:var(--surface-2)}
+  .subhead{display:flex;align-items:center;gap:12px;margin:2px 0 14px}
+  .subhead .backbtn{display:flex;align-items:center;gap:4px;font-size:13.5px;font-weight:600;
+    color:var(--accent);background:var(--tint-bg);border-radius:99px;padding:7px 12px 7px 8px}
+  .subhead b{font-size:17px;font-weight:700}
 
   /* ---------- xp suggestion dials ---------- */
   .xseg{display:flex;gap:4px}
@@ -420,24 +432,15 @@
   <button data-act="tab" data-id="home">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
     Home</button>
-  <button data-act="tab" data-id="tasks">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10.2l2.3 2.3 5-5"/><path d="M8 16h8"/></svg>
-    Tasks</button>
-  <button data-act="tab" data-id="sections">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>
-    Sections</button>
   <button data-act="tab" data-id="calendar">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
     Calendar</button>
-  <button data-act="tab" data-id="progress">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5.5-5.5 3.5 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>
-    Progress</button>
-  <button data-act="tab" data-id="settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9.5" cy="7" r="2.2" style="fill:var(--bg)"/><circle cx="15" cy="12" r="2.2" style="fill:var(--bg)"/><circle cx="8" cy="17" r="2.2" style="fill:var(--bg)"/></svg>
-    Settings</button>
   <button data-act="tab" data-id="finances">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.7"/><path d="M6 9.5h.01M18 14.5h.01"/></svg>
     Finances</button>
+  <button data-act="tab" data-id="settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9.5" cy="7" r="2.2" style="fill:var(--bg)"/><circle cx="15" cy="12" r="2.2" style="fill:var(--bg)"/><circle cx="8" cy="17" r="2.2" style="fill:var(--bg)"/></svg>
+    Settings</button>
 </div></nav>
 
 <div class="toast" id="toast"></div>
@@ -1689,14 +1692,13 @@ function viewHome(){
       (shown.length?shown.map(h=>habitRow(h,t)).join('')
         :`<div class="empty" style="padding:12px 16px">All done here for today.</div>`);
   }).join('');
-  return heroHTML()+
+  return heroHTML()+quickNavHTML()+
     `<div class="pendline"><span>Today</span>
       <span class="num">${fmt(todayTotal)} XP so far${pend.total?' &middot; '+pend.total+' left':' &middot; all done'}</span></div>`+
     reminderBannerHTML()+
     backupNudgeHTML()+
     goalsBlock+
     (sections||`<div class="empty" style="margin-top:12px">No habits yet. Build your sections and habits in the Sections tab.</div>`)+
-    weightSectionHTML()+
     `<div class="inline"><button class="btn ghost" data-act="undo">Undo last entry</button></div>`;
 }
 
@@ -1716,7 +1718,7 @@ function viewTasks(){
     plannedBlock=`<h2>Planned<span class="count num">${planned.length}</span></h2>`+
       [...byDate.entries()].map(([d,xs])=>`<h3>${esc(fmtLong(d))}</h3>`+xs.map(x=>taskRow(x)).join('')).join('');
   }
-  return `<div class="goals-head" style="margin-top:4px"><h2>New goal</h2></div>`+
+  return subHeadHTML('Tasks')+`<div class="goals-head" style="margin-top:4px"><h2>New goal</h2></div>`+
     quickAddHTML(t,true)+
     `<div class="goals-head"><h2>Today${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>${doneCount||state.hideDone?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button>`:''}</div>`+
     (todays.length?todays.map(x=>taskRow(x)).join(''):allToday.length?'':`<div class="empty">Nothing set for today yet.</div>`)+
@@ -1922,7 +1924,7 @@ function viewSections(){
   const newCat=adding&&adding.type==='cat'
     ?catFormHTML(null)
     :`<button class="btn ghost" data-act="add-cat">+ New section</button>`;
-  return head+boxes+newCat+headroomHTML();
+  return subHeadHTML('Sections')+head+boxes+newCat+headroomHTML();
 }
 
 /* Headroom advisory: how much of the target the recurring items already
@@ -2079,7 +2081,7 @@ function viewProgress(){
   const range=kind==='day'?esc(fmtLong(t))
     :kind==='week'?esc(fmtShort(from))+' &ndash; '+esc(fmtShort(end))
     :MONTHS[parseLocal(t).getMonth()]+' '+parseLocal(t).getFullYear()+', day '+daysIn+' of '+(dayDiff(from,end)+1);
-  return `<div class="seg">${[['day','Day'],['week','Week'],['month','Month']].map(p=>
+  return subHeadHTML('Progress')+`<div class="seg">${[['day','Day'],['week','Week'],['month','Month']].map(p=>
       `<button data-act="prog" data-id="${p[0]}" aria-pressed="${prog===p[0]}">${p[1]}</button>`).join('')}</div>
     <div class="wcard">
       <div class="progdate">${range}</div>
@@ -2336,6 +2338,32 @@ function viewFinance(){
    so the owner names themselves, their first section and their
    target, then goes straight to building their first habit.
 ================================================================== */
+/* Sub-screens (Tasks, Sections, Progress, Weight) are ordinary views on the
+   existing tab mechanism - they just have no bottom-bar button. They are
+   reached from the icon row on Home and carry this back header. */
+// The Home header row: the four sub-screens, each icon clearly labelled.
+// Sections is where all adding/editing lives, so it sits right there too.
+function quickNavHTML(){
+  return `<div class="quicknav">
+    <button data-act="tab" data-id="tasks" aria-label="Open Tasks">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10.2l2.3 2.3 5-5"/><path d="M8 16h8"/></svg>Tasks</button>
+    <button data-act="tab" data-id="sections" aria-label="Open Sections, where habits and objectives are edited">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>Sections</button>
+    <button data-act="tab" data-id="progress" aria-label="Open Progress">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5.5-5.5 3.5 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>Progress</button>
+    <button data-act="tab" data-id="weight" aria-label="Open Weight">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.6 10.2a4.6 4.6 0 0 1 6.8 0"/><path d="M12 11.6l2-2.4"/></svg>Weight</button>
+  </div>`;
+}
+function subHeadHTML(title){
+  return `<div class="subhead">
+    <button class="backbtn" data-act="tab" data-id="home" aria-label="Back to Home"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"/></svg>Home</button>
+    <b>${title}</b></div>`;
+}
+function viewWeight(){
+  return subHeadHTML('Weight')+weightSectionHTML();
+}
+
 function viewSetup(){
   const y=new Date().getFullYear();
   return `<div class="hero" style="text-align:center;padding-top:26px">
@@ -2411,7 +2439,7 @@ function viewSettings(){
     <div class="form"><h3>Weight goal</h3>
       <div class="field"><label for="f-w-goal">Goal weight (kg)</label><input id="f-w-goal" inputmode="decimal" value="${state.weight.goal!==null?fmtKg(state.weight.goal):''}" placeholder="70.0" autocomplete="off"></div>
       <button class="btn primary" data-act="wt-goal">Save goal</button>
-      <div style="font-size:12.5px;color:var(--muted);margin-top:8px">Weight earns no XP: log it on Home each morning and the chart there follows each week's average. Save with the field empty to take the goal line off the chart.${state.weight.entries.length?' '+state.weight.entries.length+' morning'+(state.weight.entries.length===1?'':'s')+' logged so far.':''}</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:8px">Weight earns no XP: log it each morning on the Weight screen (the scales icon on Home) and the chart follows each week's average. Save with the field empty to take the goal line off the chart.${state.weight.entries.length?' '+state.weight.entries.length+' morning'+(state.weight.entries.length===1?'':'s')+' logged so far.':''}</div>
     </div>
     <div class="form"><h3>Appearance</h3>
       <div class="seg" style="margin-bottom:0">
@@ -2461,9 +2489,11 @@ function render(){
     return;
   }
   tabsEl.classList.remove('hidden');
-  const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,progress:viewProgress,settings:viewSettings,finances:viewFinance}[tab]||viewHome;
+  const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,progress:viewProgress,settings:viewSettings,finances:viewFinance,weight:viewWeight}[tab]||viewHome;
   document.getElementById('view').innerHTML=v();
-  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===tab?'true':'false'));
+  // sub-screens belong to Home, so the bottom bar keeps Home lit there
+  const barTab=['tasks','sections','progress','weight'].includes(tab)?'home':tab;
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===barTab?'true':'false'));
   updateBadge();
 }
 

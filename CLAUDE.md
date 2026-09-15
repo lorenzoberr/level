@@ -121,13 +121,20 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
   is capped in one place, and the hero reads `cappedXP()`. Milestones:
   L2=100, L5=511, L10=1,569, L20=5,076, L50=26,742, L80=65,125,
   L100=100,000 exactly - pinned in tests.
-- Rendering: seven tabs, one view function each (`viewHome`, `viewTasks`,
-  `viewSections`, `viewCalendar`, `viewProgress`, `viewSettings`,
-  `viewFinance`); each returns an HTML string
+- Rendering: four bottom tabs (Home, Calendar, Finances, Settings) plus four
+  SUB-SCREENS (Tasks, Sections, Progress, Weight) reached from the labelled
+  icon row on Home (`quickNavHTML()`); a sub-screen is an ordinary view on
+  the same `tab` mechanism with no bottom-bar button, carrying
+  `subHeadHTML()`'s back-to-Home header, and the bar keeps Home lit while
+  one is open. View functions: `viewHome`, `viewTasks`, `viewSections`,
+  `viewCalendar`, `viewProgress`, `viewSettings`, `viewFinance`,
+  `viewWeight` (the weight card + chart, moved off Home unchanged); each
+  returns an HTML string
   and `render()` replaces `#view`. All clicks go through one delegated listener
   keyed on `data-act` / `data-id`. Never use inline `onclick`.
-  - **Home** is the daily loop only: tick habits, tick today's goals, log the
-    weight, see what is owed. Nothing is added or edited here.
+  - **Home** is the daily loop only: tick habits, tick today's goals, see
+    what is owed, and reach the four sub-screens from the icon row under the
+    hero. Nothing is added or edited here; weight lives on its sub-screen.
   - **Tasks** is where daily goals are added (with a date field for planning
     ahead) and lists Today, "Unfinished tasks" carried over from earlier days,
     and Planned (future, grouped by date). Overdue goals also stay visible on
@@ -180,7 +187,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 327 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 343 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.

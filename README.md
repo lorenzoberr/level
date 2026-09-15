@@ -76,7 +76,10 @@ do work:
 
 ## How it works
 
-Seven tabs along the bottom, each with one job:
+Four tabs along the bottom - Home, Calendar, Finances, Settings - and, on
+Home just under the hero, a row of four labelled icons opening the other
+screens: Tasks, Sections, Progress and Weight. Each opens full-screen with a
+"Home" button to come back. Every screen keeps one job:
 
 - **Home** — the daily loop. Tick habits, tick today's goals, log your weight,
   see what's still owed. Goals left unfinished from earlier days show here
@@ -99,7 +102,8 @@ Seven tabs along the bottom, each with one job:
 
 - The app follows the phone's light or dark setting on its own. To pin it one
   way regardless, Settings > Appearance has Auto, Light and Dark.
-- **Weight** lives at the bottom of Home and earns no XP on purpose. Weigh in
+- **Weight** is its own screen (the scales icon on Home) and earns no XP on
+  purpose. Weigh in
   each morning and log it (comma or dot decimals both work); logging again the
   same day just corrects the number. Daily readings bounce around with water
   and food, so the chart plots each Monday-Sunday week's **average** — one dot

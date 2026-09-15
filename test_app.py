@@ -58,6 +58,18 @@ def fin_boot(page):
     page.reload()
     page.wait_for_selector(".hero")
 
+# Tasks, Sections, Progress and Weight are sub-screens now: reached from the
+# icon row on Home, not the bottom bar. This routes to any screen either way.
+SUBS = {"tasks", "sections", "progress", "weight"}
+def goto(page, name):
+    if name in SUBS:
+        page.locator(".tabs button[data-act=tab][data-id=home]").click()
+        page.wait_for_timeout(40)
+        page.locator(".quicknav button[data-id=%s]" % name).click()
+    else:
+        page.locator(".tabs button[data-act=tab][data-id=%s]" % name).click()
+    page.wait_for_timeout(40)
+
 def demo_boot(page):
     page.goto(URL)
     page.evaluate(DEMO)
@@ -79,7 +91,7 @@ with sync_playwright() as p:
     check("no JS errors on load", not errors, errors)
     check("header shows local date", "Monday 7 September" in page.inner_text("#today"), page.inner_text("#today"))
     check("starts at level 1 / 0 XP", "Level 1" in page.inner_text(".lvl") and page.inner_text(".total").strip() == "0")
-    check("three seeded sections plus the weight section on home", page.locator("h2 .dot").count() == 4)
+    check("three seeded sections on home (weight moved to its sub-screen)", page.locator("h2 .dot").count() == 3)
     page.screenshot(path="shots/home_empty.png", full_page=True)
 
     # log the gym (multi) twice, steps (daily) once, then toggle steps off
@@ -117,7 +129,7 @@ with sync_playwright() as p:
     page.fill("#f-t-name", "Email tutor"); page.fill("#f-t-xp", "15")
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(50)
     check("two goals today, 0/2 done on the Tasks tab", "0/2 done" in page.locator(".goals-head", has_text="Today").inner_text())
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
     check("home shows the same two goals, 6 left", page.locator(".row.task").count() == 2 and "6 left" in page.inner_text(".pendline"))
     page.locator(".row.task[data-act=task]", has_text="Email tutor").click(); page.wait_for_timeout(50)
     check("completing a goal adds its XP", page.inner_text(".total").strip() == "115" and "1/2 done" in page.locator(".goals-head").inner_text())
@@ -131,7 +143,7 @@ with sync_playwright() as p:
     check("app badge updated with pending count", calls and calls[-1] == 5, calls)
 
     # complete an objective from its section box, undo it from home
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_timeout(80)
+    goto(page, "sections"); page.wait_for_timeout(80)
     check("each section is a box holding its habits and objectives",
           page.locator(".secbox").count() == 3
           and page.locator(".secbox", has_text="Fitness").locator(".row", has_text="Gym session").count() == 1
@@ -139,7 +151,7 @@ with sync_playwright() as p:
     page.locator(".secbox .row", has_text="Bench press").locator(".tick").click(); page.wait_for_timeout(80)
     check("objective ticked inside its box", "1 done" in page.locator(".secbox", has_text="Fitness").inner_text()
           and "done" in (page.locator(".secbox .row", has_text="Bench press").get_attribute("class") or ""))
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
     check("objective adds XP", page.inner_text(".total").strip() == "400")
     check("home lists habits only, no objective rows", page.locator(".row[data-act=goal]").count() == 0)
     page.locator("button[data-act=undo]").click(); page.wait_for_timeout(50)
@@ -167,7 +179,7 @@ with sync_playwright() as p:
     check("no reminder banner at 00:15 before first time", "reminder." not in page.inner_text("#view"))
 
     # ---------- calendar ----------
-    page.locator("button[data-act=tab][data-id=calendar]").click()
+    page.locator(".tabs button[data-act=tab][data-id=calendar]").click()
     page.wait_for_selector(".cal")
     check("calendar shows September 2026", "September 2026" in page.inner_text(".calhead"))
     first_cells = page.locator(".cal .day").all()
@@ -207,7 +219,7 @@ with sync_playwright() as p:
     page.screenshot(path="shots/calendar.png", full_page=True)
 
     # ---------- sections tab: section boxes ----------
-    page.locator("button[data-act=tab][data-id=sections]").click()
+    goto(page, "sections")
     page.wait_for_selector(".secbox")
     check("no forms open until asked", page.locator("#view .form").count() == 0)
     page.locator("button[data-act=add-cat]").click(); page.wait_for_timeout(50)
@@ -290,7 +302,7 @@ with sync_playwright() as p:
     check("deleting a completed objective removes its XP", not [e for e in d["log"] if e["type"] == "goal"])
 
     # ---------- settings tab: target & data ----------
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(50)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(50)
     check("target field is a level, migrated default 80",
           "Target level" in page.inner_text("#view") and page.input_value("#f-target") == "80")
     page.fill("#f-target", "0")
@@ -325,7 +337,7 @@ with sync_playwright() as p:
     page.screenshot(path="shots/target.png", full_page=True)
 
     # home after edits
-    page.locator("button[data-act=tab][data-id=home]").click()
+    page.locator(".tabs button[data-act=tab][data-id=home]").click()
     page.wait_for_selector(".hero")
     check("pace line mentions days left; the target shows as levels",
           "day" in page.inner_text(".pace") and "Level 90 by 31 Dec 2026" in page.inner_text(".yearhead")
@@ -406,7 +418,7 @@ with sync_playwright() as p:
     dates = sorted(e["date"] for e in d["log"])
     check("entries across the DST change land on 24, 25, 26 Oct", dates == ["2026-10-24", "2026-10-25", "2026-10-26"], dates)
     check("streak counts 3 across DST", "3 day streak" in page.inner_text(".streak"), page.inner_text(".streak"))
-    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".tabs button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
     check("calendar moved to October after rollover", "October 2026" in page.inner_text(".calhead"))
     check("Oct 1 2026 is a Thursday -> 3 blanks", all("blank" in c.get_attribute("class") for c in page.locator(".cal .day").all()[:3]) and page.locator(".cal .day").all()[3].inner_text().startswith("1"))
     ctx.close()
@@ -422,7 +434,7 @@ with sync_playwright() as p:
     page.on("dialog", lambda dlg: dlg.accept())
     demo_boot(page)
 
-    page.locator("button[data-act=tab][data-id=sections]").click()
+    goto(page, "sections")
     page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
     check("weekly fields hidden until 'Times a week' is picked",
           "hidden" in page.locator("#f-h-weekly").get_attribute("class"))
@@ -439,7 +451,7 @@ with sync_playwright() as p:
           "3× a week, +60 bonus" in page.locator(".row", has_text="Weekly gym").inner_text(),
           page.locator(".row", has_text="Weekly gym").inner_text())
 
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
     gym = lambda: page.locator(".row[data-act=log]", has_text="Weekly gym")
     check("starts at 0 of 3", "0 of 3 this week" in gym().inner_text(), gym().inner_text())
     check("3 pips, none filled", gym().locator(".pips i").count() == 3
@@ -472,11 +484,11 @@ with sync_playwright() as p:
     check("row counts the extra session", "4 this week" in gym().inner_text(), gym().inner_text())
 
     # the calendar shows the bonus as its own entry, and will not let you remove it
-    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".tabs button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
     bonus_entry = page.locator(".entry", has_text="in a week")
     check("bonus appears in the day's entries, tagged", bonus_entry.count() == 1 and "weekly bonus" in bonus_entry.inner_text())
     check("bonus has no Remove button of its own", bonus_entry.locator("button[data-act=rm-entry]").count() == 0)
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
 
     # undo steps over the bonus; dropping under the count takes the bonus back
     page.locator("button[data-act=undo]").click(); page.wait_for_timeout(60)
@@ -500,7 +512,7 @@ with sync_playwright() as p:
     check("last week's XP and bonus are untouched", page.inner_text(".total").strip() == "210")
 
     # raising the count must not strip a bonus already earned in an earlier week
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_timeout(60)
+    goto(page, "sections"); page.wait_for_timeout(60)
     page.locator(".row", has_text="Weekly gym").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(60)
     check("edit form prefilled with the weekly settings",
           page.input_value("#f-h-per") == "3" and page.input_value("#f-h-bonus") == "60")
@@ -528,11 +540,11 @@ with sync_playwright() as p:
     page.on("dialog", lambda dlg: dlg.accept())
     demo_boot(page)
     # a daily goal in School, then delete the School section
-    page.locator("button[data-act=tab][data-id=tasks]").click(); page.wait_for_timeout(50)
+    goto(page, "tasks"); page.wait_for_timeout(50)
     page.fill("#f-t-name", "Homework"); page.fill("#f-t-xp", "40")
     page.select_option("#f-t-cat", label="School")
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(60)
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    goto(page, "sections"); page.wait_for_selector(".secbox")
     page.locator(".secbox", has_text="School").locator("button[data-act=del-cat]").click(); page.wait_for_timeout(80)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     cat_ids = {c["id"] for c in d["cats"]}
@@ -545,7 +557,7 @@ with sync_playwright() as p:
                             navigator.clearAppBadge = () => { window.__badge.push(0); return Promise.resolve(); }; }""")
     page.clock.run_for(24 * 60 * 60 * 1000)   # -> 9 Sep, yesterday's goal is now overdue
     page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(120)
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(80)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(80)
     overdue = page.locator(".row.task", has_text="Homework").count()
     calls = page.evaluate("window.__badge")
     check("badge and 'left' count include unfinished goals from earlier days",
@@ -569,8 +581,8 @@ with sync_playwright() as p:
 
     # every painted surface must come from a token: nothing may stay pure white
     whites = []
-    for t in ("home", "tasks", "sections", "calendar", "progress", "settings", "finances"):
-        page.locator("button[data-act=tab][data-id=%s]" % t).click(); page.wait_for_timeout(80)
+    for t in ("home", "tasks", "sections", "calendar", "progress", "settings", "finances", "weight"):
+        goto(page, t); page.wait_for_timeout(40)
         whites += page.evaluate("""() => [...document.querySelectorAll('#view *, .tabs, .tabs *, .toast')]
             .filter(e => !e.closest('.hero'))   // the hero bar is white on its blue gradient, by design
             .filter(e => getComputedStyle(e).backgroundColor === 'rgb(255, 255, 255)')
@@ -579,7 +591,7 @@ with sync_playwright() as p:
     page.screenshot(path="shots/dark_settings.png", full_page=True)
 
     # forcing a theme overrides the phone, and survives a reload without flashing
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)   # the sweep ends on Finances
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)   # the sweep ends on Finances
     page.locator("button[data-act=theme][data-id=light]").click(); page.wait_for_timeout(60)
     check("forcing light overrides a dark phone",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
@@ -587,7 +599,7 @@ with sync_playwright() as p:
     page.reload(); page.wait_for_selector(".hero")
     check("the head script applies the forced theme before the first paint",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light")
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.locator("button[data-act=theme][data-id=auto]").click(); page.wait_for_timeout(60)
     check("back on auto it follows the phone again",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "dark")
@@ -632,7 +644,7 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("exporting records the backup date", d["lastBackup"] == "2026-09-08", d.get("lastBackup"))
     check("the nudge goes away once backed up", page.locator(".remind.backup").count() == 0)
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     check("settings shows when the last backup was", "Last backup 8 Sept 2026" in page.inner_text("#view"), page.inner_text("#view")[:200])
 
     # it comes back when the backup goes stale
@@ -654,8 +666,8 @@ with sync_playwright() as p:
     page.clock.install(time=datetime.datetime(2026, 9, 10, 8, 0, 0, tzinfo=ROME))  # Thursday
     page.on("dialog", lambda dlg: dlg.accept())
     demo_boot(page)
-
-    check("weight card on home with a log field", page.locator(".wcard #f-wt").count() == 1)
+    goto(page, "weight")
+    check("weight card on its sub-screen with a log field", page.locator(".wcard #f-wt").count() == 1)
     # goal set inline on first use, with a comma decimal like the Italian keypad types
     page.fill("#f-w-goal-h", "70")
     page.locator("button[data-act=wt-goal-home]").click(); page.wait_for_timeout(60)
@@ -672,7 +684,7 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("logging the same day again corrects it, one entry only",
           d["weight"]["entries"] == [{"date": "2026-09-10", "kg": 72.4}], d["weight"]["entries"])
-    check("weight never touches XP", page.inner_text(".total").strip() == "0" and d["log"] == [])
+    check("weight never touches XP", d["log"] == [] and sum(e["xp"] for e in d["log"]) == 0)
     for bad in ("7,2", "500", "abc"):
         page.fill("#f-wt", bad)
         page.locator("button[data-act=wt-log]").click(); page.wait_for_timeout(50)
@@ -688,6 +700,7 @@ with sync_playwright() as p:
         ];
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
     page.reload(); page.wait_for_selector(".hero")
+    goto(page, "weight")   # a reload lands on Home; the card lives on the sub-screen now
     meta = page.locator(".wmeta").inner_text()
     check("weekly average shown for the running week", "72.3 kg" in meta and "3 mornings so far" in meta, meta)
     check("change against last week's average", "0.5 kg vs last week" in meta, meta)
@@ -702,7 +715,7 @@ with sync_playwright() as p:
     page.screenshot(path="shots/weight_chart.png", full_page=True)
 
     # calendar: fix yesterday, remove it, and no weight form on a future day
-    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".tabs button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
     page.locator(".cal .day", has_text="9").first.click(); page.wait_for_timeout(60)
     page.fill("#f-wt-day", "71.9")
     page.locator("button[data-act=wt-log-day]").click(); page.wait_for_timeout(60)
@@ -738,7 +751,7 @@ with sync_playwright() as p:
     page.clock.install(time=datetime.datetime(2026, 9, 10, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
     demo_boot(page)
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    goto(page, "sections"); page.wait_for_selector(".secbox")
     page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
     page.fill("#f-g-name", "Bench press 80 kg")
     page.fill("#f-g-xp", "300")
@@ -816,7 +829,7 @@ with sync_playwright() as p:
         s.tasks.push({id: 'tx', name: 'Email the tutor', xp: 15, cat: s.cats[1].id, date: '2026-09-10', done: false});
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
     page.reload(); page.wait_for_selector(".hero")
-    page.locator("button[data-act=tab][data-id=progress]").click(); page.wait_for_timeout(80)
+    goto(page, "progress"); page.wait_for_timeout(80)
     check("week is the default period", page.locator("button[data-act=prog][data-id=week]").get_attribute("aria-pressed") == "true")
     check("weekly XP against the pace the target asks for",
           "470" in page.inner_text(".prognum") and "asks for about 218" in page.inner_text(".proglab"), page.inner_text(".proglab"))
@@ -855,9 +868,9 @@ with sync_playwright() as p:
     check("day view moved to the actual day", "Monday 14 September" in page.inner_text(".wcard")
           and "Yesterday: 0 XP" in page.inner_text(".proglab"), page.inner_text(".wcard")[:160])
     # and it tracks the same day live: tick a habit, the number follows
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
     page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(60)
-    page.locator("button[data-act=tab][data-id=progress]").click(); page.wait_for_timeout(60)
+    goto(page, "progress"); page.wait_for_timeout(60)
     check("today's XP updates the moment something is logged",
           "20" in page.inner_text(".prognum"), page.inner_text(".prognum"))
     check("no JS errors in the progress tab", not perr, perr)
@@ -877,7 +890,7 @@ with sync_playwright() as p:
     page.locator("button[data-act=go-tasks]").click(); page.wait_for_timeout(50)
     page.fill("#f-t-name", "Water the plants"); page.fill("#f-t-xp", "5")
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(50)
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
     page.locator(".row.task", has_text="Water the plants").click(); page.wait_for_timeout(50)
     before = page.locator(".row[data-act=log]").count()
     page.locator(".goals-head button[data-act=toggle-done]").click(); page.wait_for_timeout(60)
@@ -888,7 +901,7 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("the preference is saved", d["hideDone"] is True)
     # sections tab tucks done objectives away the same way, with its own toggle
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    goto(page, "sections"); page.wait_for_selector(".secbox")
     check("sections has its own hide toggle in the header",
           page.locator(".goals-head button[data-act=toggle-done]").count() == 1)
     page.locator(".secbox .row", has_text="Bench press").locator(".tick").click(); page.wait_for_timeout(60)
@@ -909,7 +922,7 @@ with sync_playwright() as p:
     page.clock.install(time=datetime.datetime(2026, 9, 13, 9, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
     demo_boot(page)
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    goto(page, "sections"); page.wait_for_selector(".secbox")
     page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-objective]").click(); page.wait_for_timeout(50)
     page.fill("#f-g-name", "Bench 80 kg")
     page.fill("#f-g-xp", "300")
@@ -982,7 +995,7 @@ with sync_playwright() as p:
     check("reconciling again adds nothing (idempotent)",
           len([e for e in d["log"] if e["type"] == "penalty"]) == 3)
     # backfilling a habit onto a punished day takes that penalty back
-    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".tabs button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
     page.locator(".day[data-act=pick][data-id='2026-09-07']").click(); page.wait_for_timeout(60)
     check("penalty visible on its day, not removable",
           "level down" in page.inner_text("#view")
@@ -993,7 +1006,7 @@ with sync_playwright() as p:
     check("backfilling the quiet day lifts its penalty",
           [e["date"] for e in d["log"] if e["type"] == "penalty"] == ["2026-09-09", "2026-09-12"])
     # yesterday holds only a penalty entry, which must not count as an active day
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
     check("streak ignores penalty entries", "No streak yet" in page.inner_text(".streak"), page.inner_text(".streak"))
     ctx.close()
 
@@ -1011,7 +1024,7 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("paused: quiet days are not judged", not [e for e in d["log"] if e["type"] == "penalty"])
     check("hero keeps the level while paused", "Level 6" in page.inner_text(".lvl"))   # 700 on the new curve
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     check("settings shows the toggle unchecked with the paused note",
           not page.is_checked("#f-penalty") and "Paused." in page.inner_text("#view"))
     page.locator("#f-penalty").check(); page.wait_for_timeout(80)
@@ -1029,7 +1042,7 @@ with sync_playwright() as p:
           [e["date"] for e in d["log"] if e["type"] == "penalty"] == ["2026-09-09", "2026-09-11"],
           [e["date"] for e in d["log"] if e["type"] == "penalty"])
     # pausing again is a shield, not a refund
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.locator("#f-penalty").uncheck(); page.wait_for_timeout(80)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("pausing keeps the penalties already on the books",
@@ -1052,7 +1065,7 @@ with sync_playwright() as p:
         s.log.push({id:'x2',type:'habit',refId:'h4',name:'Read 20 minutes',xp:30,date:'2026-09-06',at:2});
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
     page.reload(); page.wait_for_selector(".hero")
-    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".tabs button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
     check("a 700-XP day is full intensity, a 30-XP day stays light against it",
           page.locator(".day[data-id='2026-09-05']").get_attribute("data-l") == "3"
           and page.locator(".day[data-id='2026-09-06']").get_attribute("data-l") == "1",
@@ -1096,12 +1109,12 @@ with sync_playwright() as p:
     page.reload(); page.wait_for_selector(".hero")
     check("the welcome flow never returns, and the hero greets by name",
           page.locator("#f-su-name").count() == 0 and "Lorenzo" in page.inner_text(".hero"))
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.fill("#f-name", "Enzo")
     page.locator("button[data-act=save-name]").click(); page.wait_for_timeout(60)
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
     check("the name can be changed later under Settings", "Enzo" in page.inner_text(".hero"))
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.locator("button[data-act=reset]").click(); page.wait_for_selector("#f-su-name")
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("Reset everything returns the app to brand new, welcome flow included",
@@ -1126,7 +1139,7 @@ with sync_playwright() as p:
     page.clock.install(time=datetime.datetime(2026, 9, 15, 10, 0, 0, tzinfo=ROME))
     page.on("dialog", lambda dlg: dlg.accept())
     fin_boot(page)
-    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
+    page.locator(".tabs button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
     check("finances opens on the current month", "September 2026" in page.inner_text(".calhead")
           and "Current month" in page.inner_text(".progdate"))
     check("income and budgets from the fixture", "£1,200.50 left" in page.inner_text(".wmeta")
@@ -1176,20 +1189,20 @@ with sync_playwright() as p:
           and page.locator(".spentro").count() == 3)
 
     # the entry is background history: undo steps over it, streak ignores it, calendar cannot remove it
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
     check("hero total includes finance XP", page.inner_text(".total").strip() == "140")
     page.locator("button[data-act=undo]").click(); page.wait_for_timeout(60)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("undoLast skips the finance entry", len([e for e in d["log"] if e["type"] == "finance"]) == 1
           and page.inner_text(".total").strip() == "140")
     check("streak ignores finance entries", "No streak yet" in page.inner_text(".streak"))
-    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    page.locator(".tabs button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
     fentry = page.locator(".entry", has_text="September budget")
     check("calendar shows it tagged with no Remove button",
           "close-out" in fentry.inner_text() and fentry.locator("button[data-act=rm-entry]").count() == 0)
 
     # reopen removes the XP and unlocks the month
-    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(60)
     page.locator("button[data-act=fin-reopen]").click(); page.wait_for_timeout(80)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("reopen removes the entry and unlocks",
@@ -1257,7 +1270,7 @@ with sync_playwright() as p:
         "() => [suggestXP(100,3,3), suggestXP(100,4,4)]") == [35, 60])  # 33.75 up, 62.19 down
 
     # dials in the habit form: no auto-fill until touched, then table values
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    goto(page, "sections"); page.wait_for_selector(".secbox")
     page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
     check("two dials, both resting at 3, XP untouched",
           page.locator(".xseg").count() == 2
@@ -1285,7 +1298,7 @@ with sync_playwright() as p:
     check("a dial touch re-suggests over the typed value", page.input_value("#f-h-xp") == "20")
     page.locator("button[data-act=cancel]").click(); page.wait_for_timeout(40)
     # the task quick-add carries the dials with CEIL 30
-    page.locator("button[data-act=tab][data-id=tasks]").click(); page.wait_for_timeout(60)
+    goto(page, "tasks"); page.wait_for_timeout(60)
     page.locator(".quick .xseg[data-kind=eff] [data-id='4']").click(); page.wait_for_timeout(40)
     check("task dial suggests 15 (imp 3, eff 4, CEIL 30)", page.input_value("#f-t-xp") == "15")
 
@@ -1298,7 +1311,7 @@ with sync_playwright() as p:
         s.goals = [{id:'gA',name:'Big lift',xp:2000,cat:'c-fit'}];
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
     page.reload(); page.wait_for_selector(".hero")
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    goto(page, "sections"); page.wait_for_selector(".secbox")
     # maxH = 122*(100+600) + 18*3*110 = 91,340; realistic = 68,505 + 1,000 = 69,505 -> under 70,000
     note = page.locator("#view .note", has_text="realistic consistency")
     check("advisory present, not warn-styled, at 69,505 of 100,000",
@@ -1308,7 +1321,7 @@ with sync_playwright() as p:
         s.goals[0].xp = 6000;                                   // realistic -> 71,505
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
     page.reload(); page.wait_for_selector(".hero")
-    page.locator("button[data-act=tab][data-id=sections]").click(); page.wait_for_selector(".secbox")
+    goto(page, "sections"); page.wait_for_selector(".secbox")
     note = page.locator("#view .note", has_text="realistic consistency")
     check("advisory warns above 70,000 and says why",
           "warn" in (note.get_attribute("class") or "") and "71,505" in note.inner_text()
@@ -1329,7 +1342,7 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("pre-subcategory install loads unchanged, subs repaired to empty",
           all(c["subs"] == [] for c in d["finance"]["categories"]), d["finance"]["categories"])
-    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
+    page.locator(".tabs button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
 
     # a no-subs category still takes its spend directly (unchanged behaviour)
     inv = page.locator(".finrow", has_text="Investing").locator("input.finspent")
@@ -1437,12 +1450,12 @@ with sync_playwright() as p:
         s.finance.months['2026-09'] = {spent:{f1:200}, closed:false, awarded:0};
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
     page.reload(); page.wait_for_selector(".hero")
-    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
+    page.locator(".tabs button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
     page.locator("button[data-act=fin-close]").click(); page.wait_for_timeout(100)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("the log stays truthful past the cap (derivation clamp, not award clamp)",
           sum(e["xp"] for e in d["log"]) == 100070, sum(e["xp"] for e in d["log"]))
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(80)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(80)
     check("display caps at 100,000 / level 100 / maxed bar",
           page.inner_text(".total").strip() == "100,000" and "Level 100" in page.inner_text(".lvl")
           and "Maxed" in page.inner_text(".barmeta"), page.inner_text(".barmeta"))
@@ -1500,7 +1513,7 @@ with sync_playwright() as p:
     # a fresh install defaults to 80 in the onboarding form (covered above) and in seed
     check("seed defaults the target level to 80", page.evaluate("() => seed().targetLevel") == 80)
     # the Settings control: edits a level, defaults 80, no XP-figure target anywhere
-    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     check("settings target control is a level defaulting to 80",
           page.input_value("#f-target") == "80"
           and page.get_attribute("#f-target", "max") == "100"
@@ -1510,12 +1523,57 @@ with sync_playwright() as p:
     # editing in Settings is what Home reads: one continuous flow
     page.fill("#f-target", "85")
     page.locator("button[data-act=save-target]").click(); page.wait_for_timeout(60)
-    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
     check("home immediately shows the level edited in settings",
           "Level 85 by 31 May 2027" in page.inner_text(".yearhead")
           and "/ 85" in page.inner_text(".yearhead")
           and "goal 85" in page.inner_text(".goal80"), page.inner_text(".yearhead"))
     check("no JS errors in the target-level flow", not rerr, rerr)
+    ctx.close()
+
+    # ---------- 3s. navigation restructure: four tabs + four sub-screens ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    nerr = []
+    page.on("pageerror", lambda e: nerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))
+    fin_boot(page)
+    check("bottom bar has exactly four items in order",
+          page.evaluate("() => [...document.querySelectorAll('.tabs button')].map(b => b.dataset.id)")
+          == ["home", "calendar", "finances", "settings"])
+    check("home keeps the progress header, today's goals and the habits",
+          page.locator(".hero").count() == 1 and page.locator(".goals-head").count() == 1
+          and page.locator(".row[data-act=log]").count() >= 4)
+    check("no weight entry remains on Home",
+          page.locator("#f-wt").count() == 0 and page.locator(".wcard").count() == 0)
+    check("the icon row shows the four sub-screens, Sections clearly labelled",
+          page.evaluate("() => [...document.querySelectorAll('.quicknav button')].map(b => b.dataset.id)")
+          == ["tasks", "sections", "progress", "weight"]
+          and "Sections" in page.inner_text(".quicknav"))
+    for name, marker in (("tasks", "#f-t-name"), ("sections", ".secbox"),
+                         ("progress", ".prognum"), ("weight", "#f-wt")):
+        page.locator(".quicknav button[data-id=%s]" % name).click(); page.wait_for_timeout(60)
+        check("icon opens the %s sub-screen with a way back" % name,
+              page.locator(marker).count() >= 1 and page.locator(".subhead .backbtn").count() == 1
+              and page.evaluate("document.querySelector('.tabs [data-id=home]').getAttribute('aria-current')") == "true")
+        page.locator(".subhead .backbtn").click(); page.wait_for_timeout(60)
+        check("back returns to Home from %s" % name, page.locator(".quicknav").count() == 1)
+    # weight sub-screen still logs and charts; averaging untouched
+    goto(page, "weight")
+    page.fill("#f-wt", "72,4")
+    page.locator("button[data-act=wt-log]").click(); page.wait_for_timeout(60)
+    page.fill("#f-wt", "")  # field refills from state on render
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("weight sub-screen logs and draws the trend area",
+          d["weight"]["entries"] == [{"date": "2026-09-16", "kg": 72.4}]
+          and page.locator(".wmeta").count() == 1)
+    # Sections edits; Home does not
+    goto(page, "sections")
+    check("sections still edits", page.locator("button[data-act=add-habit]").count() >= 1)
+    goto(page, "home")
+    check("home still does not edit",
+          page.locator("#view [data-act=add-habit], #view [data-act=edit-habit], #view [data-act=save-habit]").count() == 0)
+    check("no JS errors in the restructure flow", not nerr, nerr)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
