@@ -1218,8 +1218,8 @@ with sync_playwright() as p:
     page.locator("button[data-act=fin-next]").click(); page.wait_for_timeout(60)
     check("back to the current month", "September 2026" in page.inner_text(".calhead"))
     check("the future is not reachable", page.locator("button[data-act=fin-next]").is_disabled())
-    # (no level cap exists in the app today; when one ships, finance close-out
-    # must be added to its enforcement tests)
+    # (the level cap shipped later: section 3q proves finance close-out
+    # respects it)
     check("no JS errors in the finance flow", not ferr, ferr)
     ctx.close()
 

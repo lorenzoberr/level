@@ -104,7 +104,16 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     snapshotted at the moment it is earned, dated to the session that finished
     the week. They are derived, so `undoLast()` steps over them and the calendar
     gives them no Remove button — remove one of the week's sessions instead.
-- Level curve: `xpForLevel(L) = 100(L-1) + 25(L-1)(L-2)`.
+- Level curve + cap: `xpForLevel(L) = round(90.7(L-1) + 9.2869(L-1)^2)` -
+  gentle early, rising per-level cost, calibrated so level 100 costs exactly
+  100,000 XP. Level 100 (`LEVEL_CAP`) is the hard maximum and level 80
+  (`GOAL_LEVEL`) is the owner's goal, shown as a subtle chip in the hero.
+  The cap is a DERIVATION/DISPLAY clamp, never an award clamp: the log stays
+  fully truthful past 100,000 (finance reopen, bonus revoke and undo keep
+  their symmetry), `levelInfo()` clamps its input so every level derivation
+  is capped in one place, and the hero reads `cappedXP()`. Milestones:
+  L2=100, L5=511, L10=1,569, L20=5,076, L50=26,742, L80=65,125,
+  L100=100,000 exactly - pinned in tests.
 - Rendering: seven tabs, one view function each (`viewHome`, `viewTasks`,
   `viewSections`, `viewCalendar`, `viewProgress`, `viewSettings`,
   `viewFinance`); each returns an HTML string
@@ -164,7 +173,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 304 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 316 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.
