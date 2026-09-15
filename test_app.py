@@ -45,6 +45,19 @@ DEMO = """() => localStorage.setItem('level.v2', JSON.stringify({
           {id:'g3',name:'Finish coursework draft',xp:200,cat:'c-school'}],
   target: 10000, deadline: '2026-12-31', lastTaskCat: 'c-school'
 }))"""
+# The classic fixture plus a working budget: an allowance and three categories
+# (two spending, one investing). Months start empty; tests enter the spends.
+FIN_DEMO = DEMO.replace("lastTaskCat: 'c-school'", """lastTaskCat: 'c-school',
+  finance: { income: 1200.5, months: {},
+    categories: [{id:'f1',name:'Groceries',budget:250,xp:80,dir:'under'},
+                 {id:'f2',name:'Investing',budget:100,xp:60,dir:'over'},
+                 {id:'f3',name:'Eating out',budget:120,xp:40,dir:'under'}] }""")
+def fin_boot(page):
+    page.goto(URL)
+    page.evaluate(FIN_DEMO)
+    page.reload()
+    page.wait_for_selector(".hero")
+
 def demo_boot(page):
     page.goto(URL)
     page.evaluate(DEMO)
@@ -547,7 +560,7 @@ with sync_playwright() as p:
 
     # every painted surface must come from a token: nothing may stay pure white
     whites = []
-    for t in ("home", "tasks", "sections", "calendar", "progress", "settings"):
+    for t in ("home", "tasks", "sections", "calendar", "progress", "settings", "finances"):
         page.locator("button[data-act=tab][data-id=%s]" % t).click(); page.wait_for_timeout(80)
         whites += page.evaluate("""() => [...document.querySelectorAll('#view *, .tabs, .tabs *, .toast')]
             .filter(e => !e.closest('.hero'))   // the hero bar is white on its blue gradient, by design
@@ -557,6 +570,7 @@ with sync_playwright() as p:
     page.screenshot(path="shots/dark_settings.png", full_page=True)
 
     # forcing a theme overrides the phone, and survives a reload without flashing
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)   # the sweep ends on Finances
     page.locator("button[data-act=theme][data-id=light]").click(); page.wait_for_timeout(60)
     check("forcing light overrides a dark phone",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
@@ -1082,6 +1096,130 @@ with sync_playwright() as p:
     check("Reset everything returns the app to brand new, welcome flow included",
           d["setup"] is False and d["habits"] == [] and d["log"] == [])
     check("no JS errors through the welcome flow", not oerr, oerr)
+    ctx.close()
+
+    # ---------- 3m. finances ----------
+    # a pre-finance install (the DEMO fixture has no finance key) gets the empty default
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    demo_boot(page)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("pre-finance install gets the empty finance default",
+          d["finance"] == {"income": None, "categories": [], "months": {}}, d.get("finance"))
+    ctx.close()
+
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    ferr = []
+    page.on("pageerror", lambda e: ferr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 15, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    fin_boot(page)
+    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(80)
+    check("finances opens on the current month", "September 2026" in page.inner_text(".calhead")
+          and "Current month" in page.inner_text(".progdate"))
+    check("income and budgets from the fixture", "£1,200.50 left" in page.inner_text(".wmeta")
+          and "£470 budgeted" in page.inner_text(".wmeta") and "£0 spent" in page.inner_text(".wmeta"))
+
+    # add a category through the form, edit it, delete it
+    page.locator("button[data-act=fin-add]").click(); page.wait_for_timeout(50)
+    page.fill("#f-fc-name", "Coffee"); page.fill("#f-fc-budget", "30"); page.fill("#f-fc-xp", "10")
+    page.locator("button[data-act=fin-save]").click(); page.wait_for_timeout(60)
+    check("category added", page.locator(".finrow", has_text="Coffee").count() == 1
+          and "£30 budget" in page.locator(".finrow", has_text="Coffee").inner_text())
+    page.locator(".finrow", has_text="Coffee").locator("button[data-act=fin-edit]").click(); page.wait_for_timeout(50)
+    check("edit form prefilled", page.input_value("#f-fc-name") == "Coffee" and page.input_value("#f-fc-budget") == "30")
+    page.fill("#f-fc-budget", "35,50")
+    page.locator("button[data-act=fin-save]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("comma-decimal budget saved", [c for c in d["finance"]["categories"] if c["name"] == "Coffee"][0]["budget"] == 35.5)
+    page.locator(".finrow", has_text="Coffee").locator("button[data-act=fin-del]").click(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("category deleted", page.locator(".finrow", has_text="Coffee").count() == 0
+          and len(d["finance"]["categories"]) == 3)
+
+    # spends: under-budget success, equal-boundary success, third left blank
+    spend = lambda name, v: (page.locator(".finrow", has_text=name).locator("input.finspent").fill(v),
+                             page.locator(".finrow", has_text=name).locator("input.finspent").press("Enter"),
+                             page.wait_for_timeout(60))
+    spend("Groceries", "230")
+    spend("Investing", "100")
+    check("difference and left update", "£20 under" in page.locator(".finrow", has_text="Groceries").inner_text()
+          and "target met" in page.locator(".finrow", has_text="Investing").inner_text()
+          and "£330 spent" in page.inner_text(".wmeta") and "£870.50 left" in page.inner_text(".wmeta"))
+    check("good verdicts use the good token class",
+          page.locator(".finrow", has_text="Groceries").locator(".fin-good").count() == 1)
+    check("blank category counts as unrecorded in the close preview",
+          "2 of 3 categories recorded" in page.inner_text("#view") and "140 XP" in page.inner_text("#view"))
+
+    # close out: equal boundary succeeds, blank spending category is skipped, not rewarded
+    page.locator("button[data-act=fin-close]").click(); page.wait_for_timeout(100)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    fe = [e for e in d["log"] if e["type"] == "finance"]
+    check("close-out pays exactly the successful categories' XP (80+60, blank skipped)",
+          len(fe) == 1 and fe[0]["xp"] == 140 and d["finance"]["months"]["2026-09"]["awarded"] == 140
+          and d["finance"]["months"]["2026-09"]["closed"] is True, fe)
+    check("finance entry shape: refId month, dated today when closing mid-month",
+          fe[0]["refId"] == "2026-09" and fe[0]["name"] == "September budget" and fe[0]["date"] == "2026-09-15")
+    check("spent inputs lock once closed", page.locator("input.finspent").count() == 0
+          and page.locator(".spentro").count() == 3)
+
+    # the entry is background history: undo steps over it, streak ignores it, calendar cannot remove it
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    check("hero total includes finance XP", page.inner_text(".total").strip() == "140")
+    page.locator("button[data-act=undo]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("undoLast skips the finance entry", len([e for e in d["log"] if e["type"] == "finance"]) == 1
+          and page.inner_text(".total").strip() == "140")
+    check("streak ignores finance entries", "No streak yet" in page.inner_text(".streak"))
+    page.locator("button[data-act=tab][data-id=calendar]").click(); page.wait_for_selector(".cal")
+    fentry = page.locator(".entry", has_text="September budget")
+    check("calendar shows it tagged with no Remove button",
+          "close-out" in fentry.inner_text() and fentry.locator("button[data-act=rm-entry]").count() == 0)
+
+    # reopen removes the XP and unlocks the month
+    page.locator("button[data-act=tab][data-id=finances]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=fin-reopen]").click(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("reopen removes the entry and unlocks",
+          not [e for e in d["log"] if e["type"] == "finance"]
+          and d["finance"]["months"]["2026-09"]["closed"] is False
+          and d["finance"]["months"]["2026-09"]["awarded"] == 0
+          and page.locator("input.finspent").count() == 3
+          and sum(e["xp"] for e in d["log"]) == 0)
+
+    # explicit 0 is judged: success for spending, failure for investing
+    spend("Eating out", "0")
+    spend("Investing", "0")
+    check("zero investing is judged a failure, shown as short",
+          "£100 short" in page.locator(".finrow", has_text="Investing").inner_text()
+          and page.locator(".finrow", has_text="Investing").locator(".fin-bad").count() == 1)
+    check("all three now count as recorded, paying only the winners",
+          "3 of 3 categories recorded" in page.inner_text("#view") and "120 XP" in page.inner_text("#view"))
+    page.locator("button[data-act=fin-close]").click(); page.wait_for_timeout(100)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("zero-spend close: 80 (under) + 40 (zero spending succeeds), investing failed",
+          d["finance"]["months"]["2026-09"]["awarded"] == 120
+          and [e for e in d["log"] if e["type"] == "finance"][0]["xp"] == 120)
+
+    # past months: reachable, independent, closable with the last-day entry date
+    page.locator("button[data-act=fin-prev]").click(); page.wait_for_timeout(60)
+    check("previous month viewable, its spends independent",
+          "August 2026" in page.inner_text(".calhead") and "Past month" in page.inner_text(".progdate")
+          and "£0 spent" in page.inner_text(".wmeta"))
+    spend("Groceries", "10")
+    page.locator("button[data-act=fin-close]").click(); page.wait_for_timeout(100)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    aug = [e for e in d["log"] if e["type"] == "finance" and e["refId"] == "2026-08"]
+    check("closing a past month dates its entry to that month's last day",
+          len(aug) == 1 and aug[0]["date"] == "2026-08-31" and aug[0]["name"] == "August budget" and aug[0]["xp"] == 80)
+    # forward stops at the current month
+    page.locator("button[data-act=fin-next]").click(); page.wait_for_timeout(60)
+    check("back to the current month", "September 2026" in page.inner_text(".calhead"))
+    check("the future is not reachable", page.locator("button[data-act=fin-next]").is_disabled())
+    # (no level cap exists in the app today; when one ships, finance close-out
+    # must be added to its enforcement tests)
+    check("no JS errors in the finance flow", not ferr, ferr)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------

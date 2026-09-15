@@ -29,7 +29,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 - State: `{setup, name, cats, habits, goals, tasks, log, target, deadline,
   start, reminders, theme, hideDone, penaltyPaused, penaltyFrom, lastBackup,
-  weight, lastTaskCat}`.
+  weight, finance, lastTaskCat}`.
   - **Fresh installs are empty.** `seed()` ships no habits, goals or entries -
     one placeholder section only (the code assumes at least one cat). With
     `setup:false`, `render()` shows the first-open welcome flow instead of the
@@ -74,17 +74,31 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     penalties stay - a shield, not a refund), and unpausing stamps
     `penaltyFrom` with today so days that passed while paused are never
     judged retroactively. Jurisdiction is `max(window, penaltyFrom)`.
+  - `finance`: `{income, categories, months}` - monthly GBP budgeting, sealed
+    off like weight with ONE exception: closing out a month pays a lump of XP
+    (a `finance` log entry, `refId` = `YYYY-MM`, dated inside that month).
+    `categories` `{id,name,budget,xp,dir}` are shared across months
+    (`dir:'under'` = spending, success is spent<=budget; `'over'` = investing,
+    success is spent>=budget; equal always succeeds). `months[YYYY-MM]` =
+    `{spent:{catId:number},closed,awarded}` - absence from `spent` means "not
+    recorded, skip at close-out"; an explicit 0 is judged. No rollover, no
+    per-purchase ledger, no link to habit sections. `finance` entries behave
+    like bonus/penalty: `undoLast()` skips them, `streak()` and
+    `reconcilePenalties()` ignore them (money is never "logging"), the
+    calendar shows them ("close-out") with no Remove. Reopening a closed month
+    removes its entry like a reopened objective. Money in/out via `moneyIn()`
+    (comma or dot decimal) and `gbp()` (£1,234; decimals only when present).
   - `tasks`: daily goals tied to a `date`; overdue ones surface on Home.
-  - `log`: XP entries `{type: habit|goal|task|bonus, refId, name, xp, date, at}`. Total XP
+  - `log`: XP entries `{type: habit|goal|task|bonus|penalty|finance, refId, name, xp, date, at}`. Total XP
     is always the sum of `log`. `done` flags are re-derived from the log in `normalise()`.
   - `bonus` entries are the weekly completion bonus: one per habit per week, XP
     snapshotted at the moment it is earned, dated to the session that finished
     the week. They are derived, so `undoLast()` steps over them and the calendar
     gives them no Remove button — remove one of the week's sessions instead.
 - Level curve: `xpForLevel(L) = 100(L-1) + 25(L-1)(L-2)`.
-- Rendering: six tabs, one view function each (`viewHome`, `viewTasks`,
-  `viewSections`, `viewCalendar`, `viewProgress`, `viewSettings`); each
-  returns an HTML string
+- Rendering: seven tabs, one view function each (`viewHome`, `viewTasks`,
+  `viewSections`, `viewCalendar`, `viewProgress`, `viewSettings`,
+  `viewFinance`); each returns an HTML string
   and `render()` replaces `#view`. All clicks go through one delegated listener
   keyed on `data-act` / `data-id`. Never use inline `onclick`.
   - **Home** is the daily loop only: tick habits, tick today's goals, log the
@@ -105,6 +119,11 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     calendar month) to match the weekly-habit maths, not trailing windows. Encouraging in tone,
     but the misses are named with counts.
   - **Settings** holds target, weight goal, appearance, reminders, data.
+  - **Finances** (last tab) is the monthly budget: month header with
+    back/forward (never future), income card with budgeted/spent/left,
+    category rows with in-place spent inputs (read-only once closed), an
+    add/edit-in-place form, and the close-out / reopen controls. Good/over
+    verdicts use the `--fin-good`/`--fin-bad` tokens.
   - `state.hideDone` (persisted) tucks away ticked daily habits, met weekly
     habits, done daily goals and done objectives across Home, Tasks and
     Sections; every hidden list leaves a tappable "N done hidden" hint.
@@ -123,7 +142,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 246 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 272 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.

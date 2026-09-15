@@ -65,6 +65,8 @@
     --day-hi-ink:#FFFFFF;
     --day-future-bg:#F1F4F8;
     --day-future-ink:#B0BAC8;
+    --fin-good:#15803D;      /* budget met */
+    --fin-bad:#DC2626;       /* budget blown */
     --r:16px;
     --pad:18px;
   }
@@ -107,6 +109,8 @@
     --day-3:#4B87F5;
     --day-future-bg:#141C2A;
     --day-future-ink:#54627A;
+    --fin-good:#4ADE80;
+    --fin-bad:#F87171;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -278,7 +282,7 @@
     backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
     border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20}
   .tabs > div{max-width:480px;margin:0 auto;display:flex}
-  .tabs button{flex:1;padding:10px 0 11px;font-size:11.5px;font-weight:600;color:var(--muted);
+  .tabs button{flex:1;padding:10px 0 11px;font-size:11px;font-weight:600;color:var(--muted);
     display:flex;flex-direction:column;align-items:center;gap:3px;min-height:56px}
   .tabs button svg{width:22px;height:22px}
   .tabs button[aria-current="true"]{color:var(--accent)}
@@ -328,6 +332,21 @@
   .mini{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg);margin-top:8px}
   .mini:active{opacity:.8}
   .mini.dim{background:transparent;color:var(--muted);font-weight:500;padding-left:2px}
+
+  /* ---------- finances ---------- */
+  .fin-good{color:var(--fin-good);font-weight:600}
+  .fin-bad{color:var(--fin-bad);font-weight:600}
+  .finrow input.finspent{width:88px;flex:0 0 88px;text-align:right;padding:9px 10px;
+    border:1px solid var(--line-2);border-radius:10px;background:var(--input-bg);
+    font-size:15px;min-height:40px;-webkit-appearance:none;appearance:none}
+  .finrow input.finspent:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
+  .finrow .spentro{flex:0 0 auto;font-size:14.5px;font-weight:700;padding-right:2px}
+  .finrow .acts button{padding:8px 6px}
+  .finseg{display:flex;gap:8px;margin-bottom:10px}
+  .finseg button{flex:1;padding:10px 8px;border:1px solid var(--line-2);border-radius:11px;
+    font-size:13px;font-weight:600;color:var(--muted);background:var(--input-bg);text-align:left;line-height:1.35}
+  .finseg button b{display:block;color:var(--ink);font-weight:700}
+  .finseg button[aria-pressed="true"]{border-color:var(--hero-b);outline:2px solid var(--hero-b);outline-offset:-2px}
 
   /* ---------- progress ---------- */
   .prognum{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1}
@@ -399,6 +418,9 @@
   <button data-act="tab" data-id="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9.5" cy="7" r="2.2" style="fill:var(--bg)"/><circle cx="15" cy="12" r="2.2" style="fill:var(--bg)"/><circle cx="8" cy="17" r="2.2" style="fill:var(--bg)"/></svg>
     Settings</button>
+  <button data-act="tab" data-id="finances">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.7"/><path d="M6 9.5h.01M18 14.5h.01"/></svg>
+    Finances</button>
 </div></nav>
 
 <div class="toast" id="toast"></div>
@@ -462,6 +484,14 @@ const kgIn=v=>{const t=String(v??'').trim().replace(',','.');
   if(!/^\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
   const n=parseFloat(t); return n>=20&&n<=300?Math.round(n*10)/10:null;};
 const fmtKg=n=>(Math.round(n*10)/10).toFixed(1);
+// Money in GBP: comma or dot decimal on input like kgIn(), up to two decimal
+// places kept, 0 allowed (an explicit £0 is a real answer in the budget page).
+const moneyIn=v=>{const t=String(v??'').trim().replace(',','.');
+  if(!/^\d{1,7}(\.\d{1,2})?$/.test(t)) return null;
+  const n=parseFloat(t); return n>=0&&n<=10000000?Math.round(n*100)/100:null;};
+// £1,234 - symbol first, comma thousands, decimals only when the amount has them
+const gbp=n=>{const a=Math.abs(n),p=Math.round(a*100)%100!==0;
+  return (n<0?'-':'')+'£'+a.toLocaleString('en-GB',p?{minimumFractionDigits:2,maximumFractionDigits:2}:{maximumFractionDigits:0});};
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const fmtLong=iso=>{const d=parseLocal(iso);return d?d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}):iso;};
 const fmtShort=iso=>{const d=parseLocal(iso);return d?d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):iso;};
@@ -520,6 +550,11 @@ function seed(){
     // weight rides outside the XP system entirely: no log entries, no badge.
     // One entry per day; the chart plots each Monday-Sunday week's average.
     weight:{goal:null,entries:[]},
+    // finances are sealed off the same way, with one exception: closing out a
+    // month pays a lump of XP for budget discipline (a 'finance' log entry).
+    // income = the monthly allowance in GBP; categories are shared across all
+    // months; months holds per-month {spent, closed, awarded} keyed YYYY-MM.
+    finance:{income:null,categories:[],months:{}},
     lastTaskCat:'c1'
   };
 }
@@ -575,7 +610,7 @@ function normalise(d){
     // v1 entries used habitId/goalId; v2 uses type/refId
     const type=e.type||(e.goalId?'goal':'habit');
     const refId=e.refId||e.habitId||e.goalId||null;
-    return {id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':type==='bonus'?'bonus':type==='penalty'?'penalty':'habit',refId:refId?String(refId):null,
+    return {id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':type==='bonus'?'bonus':type==='penalty'?'penalty':type==='finance'?'finance':'habit',refId:refId?String(refId):null,
       name:String(e.name||'Entry').slice(0,60),xp:clampInt(e.xp,-100000,100000)||0,date:e.date,
       at:Number.isFinite(e.at)?e.at:0};
   }):[];
@@ -623,6 +658,38 @@ function normalise(d){
       .sort((a,b)=>a.date<b.date?-1:1)
   };
 
+  // finance: installs from before the feature get the empty default; every
+  // field is repaired. Absence from a month's spent map is meaningful (it
+  // means "not recorded"), so only valid numbers make it in - never a fake 0.
+  const fsrc=d.finance&&typeof d.finance==='object'?d.finance:{};
+  const numGBP=v=>{const n=typeof v==='number'?v:parseFloat(v);
+    return Number.isFinite(n)&&n>=0&&n<=10000000?Math.round(n*100)/100:null;};
+  out.finance={
+    income:numGBP(fsrc.income),
+    categories:(Array.isArray(fsrc.categories)?fsrc.categories:[])
+      .filter(c=>c&&typeof c==='object').map(c=>({
+        id:String(c.id||uid()),name:String(c.name||'Untitled').slice(0,40),
+        budget:numGBP(c.budget)!==null?numGBP(c.budget):0,
+        xp:(v=>v===null?0:v)(clampInt(c.xp,0,100000)),
+        dir:c.dir==='over'?'over':'under'})),
+    months:{}
+  };
+  const finCatIds=new Set(out.finance.categories.map(c=>c.id));
+  if(fsrc.months&&typeof fsrc.months==='object'){
+    for(const ym of Object.keys(fsrc.months)){
+      if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) continue;
+      const m=fsrc.months[ym]; if(!m||typeof m!=='object') continue;
+      const spent={};
+      if(m.spent&&typeof m.spent==='object')
+        for(const cid of Object.keys(m.spent)){
+          const v=numGBP(m.spent[cid]);
+          if(v!==null&&finCatIds.has(cid)) spent[cid]=v;
+        }
+      out.finance.months[ym]={spent,closed:!!m.closed,
+        awarded:(v=>v===null?0:v)(clampInt(m.awarded,0,10000000))};
+    }
+  }
+
   out.theme=(d.theme==='light'||d.theme==='dark')?d.theme:'auto';
   out.hideDone=!!d.hideDone;
   out.penaltyPaused=!!d.penaltyPaused;
@@ -668,6 +735,8 @@ let cal={y:new Date().getFullYear(),m:new Date().getMonth(),sel:todayISO()};
 let editing=null;          // {type:'cat'|'habit'|'goal', id} - an existing item's form is open
 let adding=null;           // {type:'cat'|'habit'|'goal', cat?} - a new-item form is open
 let pickedColor=PALETTE[0];
+let pickedDir='under';     // finance category form: 'under' (spending) | 'over' (investing)
+let finMonth=todayISO().slice(0,7);   // YYYY-MM being viewed on the Finances tab
 let prog='week';           // progress tab period: 'day' | 'week' | 'month'
 let lastLevel=levelInfo(totalXP()).level;
 let charAnim='';
@@ -717,7 +786,7 @@ function weightWeeks(){
 function streak(){
   // penalty entries sit on unlogged days by definition - they must not make
   // a missed day look active
-  const days=new Set(state.log.filter(e=>e.type!=='penalty').map(e=>e.date));
+  const days=new Set(state.log.filter(e=>e.type!=='penalty'&&e.type!=='finance').map(e=>e.date));
   let n=0,d=todayISO();
   if(!days.has(d)) d=addDays(d,-1);
   while(days.has(d)){n++;d=addDays(d,-1);}
@@ -805,7 +874,7 @@ function reconcilePenalties(){
   // stay - pausing is a shield for the days ahead, not a refund.
   if(state.penaltyPaused) return 0;
   const t=todayISO();
-  const nonPen=state.log.filter(e=>e.type!=='penalty');
+  const nonPen=state.log.filter(e=>e.type!=='penalty'&&e.type!=='finance');
   if(!nonPen.length) return 0;                       // nothing begun, nothing owed
   const first=nonPen.reduce((m,e)=>e.date<m?e.date:m,t);
   const cut=addDays(t,-PENALTY_WINDOW);
@@ -956,7 +1025,7 @@ function removeEntry(entryId){
 function undoLast(){
   // bonuses and penalties are derived, so undo steps over them: undo the
   // entries that caused them instead.
-  const undoable=state.log.filter(e=>e.type!=='bonus'&&e.type!=='penalty');
+  const undoable=state.log.filter(e=>e.type!=='bonus'&&e.type!=='penalty'&&e.type!=='finance');
   if(!undoable.length) return toast('Nothing to undo');
   const last=undoable.sort((a,b)=>b.at-a.at)[0];
   removeEntry(last.id);
@@ -1650,13 +1719,13 @@ function viewCalendar(){
     ${selFuture?'':selEntries.length?selEntries.map(e=>{
       const src=e.type==='goal'?state.goals.find(g=>g.id===e.refId):e.type==='task'?state.tasks.find(x=>x.id===e.refId):state.habits.find(h=>h.id===e.refId);
       const col=src?catOf(src.cat).color:'#94A3B8';
-      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?'weekly bonus':e.type==='penalty'?'level down':'';
+      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?'weekly bonus':e.type==='penalty'?'level down':e.type==='finance'?'close-out':'';
       // bonuses and penalties are derived: no Remove of their own. A penalty
       // goes away by backfilling a habit onto its two quiet days.
       return `<div class="entry"><span class="edge" style="background:${col}"></span>
         <span class="n">${esc(e.name)}${tag?' <span style="color:var(--muted);font-size:12px">'+tag+'</span>':''}</span>
         <span class="x num"${e.xp<0?' style="color:var(--red)"':''}>${e.xp<0?'&minus;'+fmt(-e.xp):'+'+fmt(e.xp)}</span>
-        ${e.type==='bonus'||e.type==='penalty'?'':`<button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button>`}</div>`;
+        ${e.type==='bonus'||e.type==='penalty'||e.type==='finance'?'':`<button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button>`}</div>`;
     }).join(''):`<div class="empty">Nothing logged on this day.</div>`}
     ${selFuture?'':tasksBlock}
     ${selFuture||!state.habits.length?'':`
@@ -1913,6 +1982,195 @@ function viewProgress(){
 }
 
 /* =================================================================
+   FINANCES
+   A monthly budget page, sealed off from the daily XP loop the same
+   way weight is - money is never daily activity, never touches the
+   streak or the penalty - with one exception: closing out a month
+   pays a lump of XP for budget discipline, as a 'finance' log entry.
+   Blank spent means "not recorded, skip"; an explicit 0 is a real
+   answer and gets judged. Categories and budgets are shared across
+   months; only spent/closed/awarded are per-month. No rollover.
+================================================================== */
+const curMonth=()=>todayISO().slice(0,7);
+const finShift=(ym,n)=>{const d=parseLocal(ym+'-01');d.setMonth(d.getMonth()+n);return localISO(d).slice(0,7);};
+const finLabel=ym=>{const d=parseLocal(ym+'-01');return MONTHS[d.getMonth()]+' '+d.getFullYear();};
+const finMonthName=ym=>MONTHS[parseLocal(ym+'-01').getMonth()];
+const finEndISO=ym=>{const d=parseLocal(ym+'-01');return localISO(new Date(d.getFullYear(),d.getMonth()+1,0));};
+const finRec=ym=>state.finance.months[ym]||{spent:{},closed:false,awarded:0};
+function finRecW(ym){
+  if(!state.finance.months[ym]) state.finance.months[ym]={spent:{},closed:false,awarded:0};
+  return state.finance.months[ym];
+}
+// Judge a month against today's category definitions. Absent from `spent`
+// means skipped; equal-to-budget always succeeds, whichever the direction.
+function finJudge(ym){
+  const m=finRec(ym);
+  let sum=0,judged=0;const wins=[],fails=[];
+  for(const c of state.finance.categories){
+    if(!(c.id in m.spent)) continue;
+    judged++;
+    const sp=m.spent[c.id];
+    const ok=c.dir==='over'?sp>=c.budget:sp<=c.budget;
+    if(ok){sum+=c.xp;wins.push(c.name);}else fails.push(c.name);
+  }
+  return {sum,judged,wins,fails};
+}
+function saveIncome(){
+  const raw=((document.getElementById('f-fin-income')||{}).value||'').trim();
+  if(raw===''){state.finance.income=null;save();render();toast('Allowance cleared');return;}
+  const v=moneyIn(raw);
+  if(v===null) return toast('Allowance between £0 and £10,000,000');
+  state.finance.income=v;save();render();toast('Allowance: '+gbp(v)+' a month');
+}
+function saveSpent(cid,val){
+  const m=state.finance.months[finMonth];
+  if(m&&m.closed) return;                            // read-only once closed
+  if(!state.finance.categories.some(c=>c.id===cid)) return;
+  const raw=String(val??'').trim();
+  if(raw===''){                                      // blank = not recorded
+    if(m&&cid in m.spent){delete m.spent[cid];save();}
+    render();return;
+  }
+  const v=moneyIn(raw);
+  if(v===null){toast('Amounts between £0 and £10,000,000');render();return;}
+  finRecW(finMonth).spent[cid]=v;
+  save();render();
+}
+function saveFinCat(){
+  const name=((document.getElementById('f-fc-name')||{}).value||'').trim().slice(0,40);
+  const budget=moneyIn((document.getElementById('f-fc-budget')||{}).value);
+  const xp=intIn((document.getElementById('f-fc-xp')||{}).value,0,100000);
+  if(!name) return toast('Give it a name');
+  if(budget===null) return toast('Budget between £0 and £10,000,000');
+  if(xp===null) return toast('XP must be a whole number between 0 and 100,000');
+  if(editing&&editing.type==='fincat'){
+    const c=state.finance.categories.find(x=>x.id===editing.id);
+    if(c) Object.assign(c,{name,budget,xp,dir:pickedDir});
+    editing=null;toast('Category updated');
+  }else{
+    state.finance.categories.push({id:uid(),name,budget,xp,dir:pickedDir});
+    adding=null;toast('Category added');
+  }
+  save();render();
+}
+function deleteFinCat(id){
+  const c=state.finance.categories.find(x=>x.id===id); if(!c) return;
+  if(!confirm('Delete "'+c.name+'"? Its spent figures disappear from every month. XP already awarded at close-out stays.')) return;
+  state.finance.categories=state.finance.categories.filter(x=>x.id!==id);
+  for(const ym of Object.keys(state.finance.months)) delete state.finance.months[ym].spent[id];
+  if(editing&&editing.type==='fincat'&&editing.id===id) editing=null;
+  save();render();toast('Category deleted');
+}
+function closeFinMonth(ym){
+  if(ym>curMonth()) return;
+  const m=finRecW(ym);
+  if(m.closed) return;
+  const j=finJudge(ym);
+  if(!confirm('Close out '+finLabel(ym)+'? '+(j.judged
+    ?j.judged+' recorded categor'+(j.judged===1?'y':'ies')+' get judged and '+fmt(j.sum)+' XP is paid. Spent figures lock.'
+    :'Nothing was recorded, so no XP - the month just locks.'))) return;
+  m.closed=true;m.awarded=j.sum;
+  if(j.sum>0){
+    // dated inside the month it judges: its last day, or today mid-month
+    const date=ym===curMonth()?todayISO():finEndISO(ym);
+    state.log.push({id:uid(),type:'finance',refId:ym,
+      name:finMonthName(ym)+' budget',xp:j.sum,date,at:Date.now()});
+  }
+  save();afterXPChange();render();
+  if(charAnim!=='pop') toast(j.sum>0?finMonthName(ym)+' closed — +'+fmt(j.sum)+' XP':finMonthName(ym)+' closed',j.sum>0);
+}
+function reopenFinMonth(ym){
+  const m=state.finance.months[ym];
+  if(!m||!m.closed) return;
+  // reverse like a reopened objective: the entry goes, totals follow
+  state.log=state.log.filter(e=>!(e.type==='finance'&&e.refId===ym));
+  m.closed=false;m.awarded=0;
+  save();afterXPChange();render();toast(finLabel(ym)+' reopened');
+}
+function finCatFormHTML(ed){
+  return `<div class="form"><h3>${ed?'Edit category':'New category'}</h3>
+    <div class="field"><label for="f-fc-name">Name</label><input id="f-fc-name" placeholder="Groceries" maxlength="40" autocomplete="off" value="${ed?esc(ed.name):''}"></div>
+    <div class="two">
+      <div class="field"><label for="f-fc-budget">Monthly budget (£)</label><input id="f-fc-budget" inputmode="decimal" placeholder="250" autocomplete="off" value="${ed?ed.budget:''}"></div>
+      <div class="field"><label for="f-fc-xp">XP when met</label><input id="f-fc-xp" type="number" inputmode="numeric" min="0" step="1" value="${ed?ed.xp:50}"></div>
+    </div>
+    <div class="field"><label>Direction</label>
+      <div class="finseg">
+        <button data-act="fin-dir" data-id="under" aria-pressed="${pickedDir==='under'}"><b>Spending</b>reward staying at or under</button>
+        <button data-act="fin-dir" data-id="over" aria-pressed="${pickedDir==='over'}"><b>Investing</b>reward meeting or exceeding</button>
+      </div>
+    </div>
+    <div class="inline"><button class="btn primary" data-act="fin-save">${ed?'Save changes':'Add category'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
+  </div>`;
+}
+function viewFinance(){
+  const cur=curMonth(),ym=finMonth;
+  const m=finRec(ym);
+  const cats=state.finance.categories;
+  const income=state.finance.income;
+  const totB=cats.reduce((s,c)=>s+c.budget,0);
+  const totS=cats.reduce((s,c)=>s+(c.id in m.spent?m.spent[c.id]:0),0);
+  const j=finJudge(ym);
+  const head=`<div class="calhead">
+      <button data-act="fin-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <b>${esc(finLabel(ym))}</b>
+      <button data-act="fin-next" aria-label="Next month" ${ym===cur?'disabled style="opacity:.35"':''}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="progdate">${ym===cur?'Current month':'Past month'}${m.closed?' &middot; closed':''}</div>`;
+  const closedBanner=m.closed
+    ?`<div class="note" style="margin-bottom:10px;display:flex;align-items:center;gap:10px"><span style="flex:1"><b>Closed.</b> ${m.awarded?fmt(m.awarded)+' XP awarded.':'No XP awarded.'}</span><button class="mini" style="margin:0" data-act="fin-reopen" data-id="${ym}">Reopen</button></div>`
+    :'';
+  const incomeBlock=`<div class="wcard">
+    ${closedBanner}
+    <div class="wlog"><input id="f-fin-income" inputmode="decimal" autocomplete="off" aria-label="Monthly allowance in pounds" placeholder="Monthly allowance, £" value="${income!==null?income:''}"><button class="btn primary" data-act="fin-income">Save</button></div>
+    ${income===null?'<div class="whint">Set your monthly allowance and the card shows what is left as the month fills in. Everything here is £.</div>':''}
+    <div class="wmeta" style="margin-top:12px">
+      <span><b class="num">${gbp(totB)}</b> budgeted</span>
+      <span><b class="num">${gbp(totS)}</b> spent</span>
+      ${income!==null?`<span class="${income-totS<0?'fin-bad':''}"><b class="num">${gbp(income-totS)}</b> left</span>`:''}
+    </div>
+  </div>`;
+  const rows=cats.map(c=>{
+    const has=c.id in m.spent;
+    const sp=has?m.spent[c.id]:null;
+    let verdict='';
+    if(has){
+      const ok=c.dir==='over'?sp>=c.budget:sp<=c.budget;
+      const d=sp-c.budget;
+      const word=c.dir==='over'
+        ?(ok?(d===0?'target met':gbp(d)+' past target'):gbp(-d)+' short')
+        :(ok?(d===0?'at budget':gbp(-d)+' under'):gbp(d)+' over');
+      verdict=` &middot; <span class="${ok?'fin-good':'fin-bad'}">${word}</span>`;
+    }
+    const ed=editing&&editing.type==='fincat'&&editing.id===c.id;
+    return `<div class="row finrow">
+      <div class="body"><div class="name">${esc(c.name)}</div>
+        <div class="sub num">${gbp(c.budget)} ${c.dir==='over'?'target':'budget'}${verdict}${c.xp?' &middot; '+fmt(c.xp)+' XP':''}</div></div>
+      ${m.closed
+        ?`<span class="spentro num">${has?gbp(sp):'&mdash;'}</span>`
+        :`<input class="finspent num" data-finspent="${esc(c.id)}" inputmode="decimal" autocomplete="off" aria-label="Spent on ${esc(c.name)} this month" placeholder="£" value="${has?sp:''}">`}
+      <div class="acts"><button data-act="fin-edit" data-id="${esc(c.id)}">Edit</button><button class="danger" data-act="fin-del" data-id="${esc(c.id)}">Delete</button></div>
+    </div>`+(ed?finCatFormHTML(c):'');
+  }).join('');
+  const addBlock=adding&&adding.type==='fincat'
+    ?finCatFormHTML(null)
+    :`<button class="mini" data-act="fin-add">+ Add category</button>`;
+  const closeBlock=!m.closed&&ym<=cur?`
+    <div class="form" style="margin-top:16px"><h3>Close out ${esc(finLabel(ym))}</h3>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">${cats.length
+        ?j.judged+' of '+cats.length+' categor'+(cats.length===1?'y':'ies')+' recorded'
+          +(j.judged?'. Closing now pays <b>'+fmt(j.sum)+' XP</b>.':'.')
+          +' A blank category is skipped; £0 is a real answer and gets judged.'
+        :'Add categories first - there is nothing to judge yet.'}</div>
+      <button class="btn primary" data-act="fin-close" data-id="${ym}" ${cats.length?'':'disabled style="opacity:.5"'}>Close out ${esc(finMonthName(ym))}</button>
+    </div>`:'';
+  return head+incomeBlock+
+    `<div class="goals-head"><h2>Categories${cats.length?`<span class="count num">${cats.length}</span>`:''}</h2></div>`+
+    (rows||`<div class="empty">No categories yet. Groceries, eating out, subscriptions, investing - each with a monthly figure and the XP it pays when you respect it.</div>`)+
+    addBlock+closeBlock;
+}
+
+/* =================================================================
    FIRST-OPEN SETUP
    Shown once, before anything else: the app starts genuinely empty,
    so the owner names themselves, their first section and their
@@ -2042,14 +2300,14 @@ function render(){
     return;
   }
   tabsEl.classList.remove('hidden');
-  const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,progress:viewProgress,settings:viewSettings}[tab]||viewHome;
+  const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,progress:viewProgress,settings:viewSettings,finances:viewFinance}[tab]||viewHome;
   document.getElementById('view').innerHTML=v();
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===tab?'true':'false'));
   updateBadge();
 }
 
 const ACTIONS={
-  tab:id=>{tab=id;editing=null;adding=null;render();window.scrollTo(0,0);},
+  tab:id=>{tab=id;editing=null;adding=null;if(id==='finances')finMonth=curMonth();render();window.scrollTo(0,0);},
   prog:id=>{prog=id==='day'||id==='month'?id:'week';render();},
   'toggle-done':()=>{state.hideDone=!state.hideDone;save();render();},
   'finish-setup':()=>finishSetup(),
@@ -2090,6 +2348,16 @@ const ACTIONS={
   'wt-del-day':iso=>removeWeight(iso),
   'wt-goal':()=>saveWeightGoal((document.getElementById('f-w-goal')||{}).value),
   'wt-goal-home':()=>saveWeightGoal((document.getElementById('f-w-goal-h')||{}).value),
+  'fin-prev':()=>{finMonth=finShift(finMonth,-1);editing=null;adding=null;render();},
+  'fin-next':()=>{const n=finShift(finMonth,1);if(n<=curMonth()){finMonth=n;editing=null;adding=null;render();}},
+  'fin-income':()=>saveIncome(),
+  'fin-add':()=>{adding={type:'fincat'};editing=null;pickedDir='under';render();focusForm('f-fc-name');},
+  'fin-edit':id=>{const c=state.finance.categories.find(x=>x.id===id);if(!c)return;editing={type:'fincat',id};adding=null;pickedDir=c.dir;render();focusForm('f-fc-name');},
+  'fin-del':id=>deleteFinCat(id),
+  'fin-save':()=>saveFinCat(),
+  'fin-dir':id=>{pickedDir=id==='over'?'over':'under';document.querySelectorAll('.finseg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===pickedDir));},
+  'fin-close':ym=>closeFinMonth(ym),
+  'fin-reopen':ym=>reopenFinMonth(ym),
   'rem-add':()=>addReminderTime(),
   'rem-del':v=>removeReminderTime(v)
 };
@@ -2106,6 +2374,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='f-import') importData(e.target);
   if(e.target.id==='f-badge') setBadgePref(e.target.checked);
   if(e.target.id==='f-penalty') setPenaltyPref(e.target.checked);
+  if(e.target.dataset&&e.target.dataset.finspent) saveSpent(e.target.dataset.finspent,e.target.value);
   // shown/hidden in place rather than re-rendering, so a half-typed name survives
   if(e.target.id==='f-h-mode'){
     const on=e.target.value==='weekly';
@@ -2125,6 +2394,7 @@ document.addEventListener('keydown',e=>{
 // self-contained (the weight card can hold two of them), so it wins first.
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||!(e.target instanceof HTMLInputElement)||e.target.type==='date') return;
+  if(e.target.dataset&&e.target.dataset.finspent){e.preventDefault();e.target.blur();return;} // commit spent
   const line=e.target.closest('.wlog');
   const box=line||e.target.closest('.form,.quick');
   const btn=box&&box.querySelector(line?'.btn':'.btn.primary');

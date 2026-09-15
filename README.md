@@ -76,7 +76,7 @@ do work:
 
 ## How it works
 
-Six tabs along the bottom, each with one job:
+Seven tabs along the bottom, each with one job:
 
 - **Home** — the daily loop. Tick habits, tick today's goals, log your weight,
   see what's still owed. Goals left unfinished from earlier days show here
@@ -94,6 +94,8 @@ Six tabs along the bottom, each with one job:
   pace your target asks for, a verdict in plain words, a bar per day, what
   went well, and what slipped — named kindly, with counts.
 - **Settings** — target, weight goal, appearance, reminders, your data.
+- **Finances** — the monthly budget: allowance, categories, what's left, and
+  a close-out that pays XP for discipline. Details further down.
 
 - The app follows the phone's light or dark setting on its own. To pin it one
   way regardless, Settings > Appearance has Auto, Light and Dark.
@@ -160,3 +162,20 @@ Exam week, holiday, illness? Settings > Level penalty has a switch. While it
 is off, quiet days are not judged — and they never will be: switching it back
 on starts counting from that day, with no back-charges. Penalties already on
 the books stay, though; pausing is a shield, not a refund.
+
+## Finances
+
+The last tab is a monthly budget, kept apart from the daily XP loop the same
+way weight is. Set your monthly allowance once, add categories with a monthly
+figure — spending ones reward staying at or under, investing ones reward
+meeting or exceeding — and fill in what you actually spent as the month goes.
+The card shows what is budgeted, spent and left; green and red tell you where
+you stand per category.
+
+At the end of the month (or whenever you are ready), close it out: every
+category you recorded gets judged, the winners pay their XP as one lump on
+that month, and the figures lock. A category you never filled in is simply
+skipped — but an explicit £0 is a real answer and gets judged, so an empty
+investing month costs you its XP. Closed the month too soon? Reopen takes
+the XP back and unlocks it. Money never counts as daily logging: it cannot
+feed the streak and the quiet-days penalty cannot see it.
