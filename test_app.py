@@ -1499,6 +1499,22 @@ with sync_playwright() as p:
           0 < float(page.evaluate("document.querySelectorAll('.bar.thin > i')[0].style.width.replace('%','')")) < 30)
     # a fresh install defaults to 80 in the onboarding form (covered above) and in seed
     check("seed defaults the target level to 80", page.evaluate("() => seed().targetLevel") == 80)
+    # the Settings control: edits a level, defaults 80, no XP-figure target anywhere
+    page.locator("button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
+    check("settings target control is a level defaulting to 80",
+          page.input_value("#f-target") == "80"
+          and page.get_attribute("#f-target", "max") == "100"
+          and "Level to reach (1-100)" in page.inner_text("#view"))
+    check("no XP-figure target field remains anywhere in settings",
+          "XP goal" not in page.inner_text("#view") and "XP to earn" not in page.inner_text("#view"))
+    # editing in Settings is what Home reads: one continuous flow
+    page.fill("#f-target", "85")
+    page.locator("button[data-act=save-target]").click(); page.wait_for_timeout(60)
+    page.locator("button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
+    check("home immediately shows the level edited in settings",
+          "Level 85 by 31 May 2027" in page.inner_text(".yearhead")
+          and "/ 85" in page.inner_text(".yearhead")
+          and "goal 85" in page.inner_text(".goal80"), page.inner_text(".yearhead"))
     check("no JS errors in the target-level flow", not rerr, rerr)
     ctx.close()
 
