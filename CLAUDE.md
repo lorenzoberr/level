@@ -52,10 +52,19 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     shows the card and chart; the chart plots each Monday-Sunday week's
     average, spaced by real time, the running week hollow/dashed. Past days
     are fixed from the calendar's day panel, like forgotten habits.
-  - `habits`: `mode` is `daily` (toggle, once per day), `multi` (repeatable), or
-    `weekly` (N sessions per Monday–Sunday week). Weekly habits also carry
-    `perWeek` (1–14) and `bonus` (0 = no bonus); both fields are present on every
-    habit so the shape is stable, and are ignored outside `weekly`.
+  - `habits`: `mode` is `daily` (toggle, once per day), `multi` (repeatable),
+    `weekly` (N sessions per Monday–Sunday week), or `monthly` (N sessions per
+    local calendar month, the exact mirror of weekly: each session pays its
+    XP, hitting the count pays `bonus` once, `reconcileMonth()` only ever
+    recomputes the one month, `monthlyDue()` nags when the sessions owed
+    equal the days left in the month). Habits carry `perWeek` (1–14),
+    `perMonth` (1–31) and `bonus` (0 = no bonus); all present on every habit
+    so the shape is stable, each ignored outside its mode. `objectiveId`
+    (default null) optionally names the objective the habit works toward -
+    a VISUAL grouping only, never a calculation: Sections shows linked
+    habits under the objective's row (`linkedHabitsHTML`), the habit form
+    has a "Works toward" select, deleting an objective just clears the
+    links back to null, and `normalise()` repairs a dangling link to null.
   - `goals`: one-off objectives; `done` + `doneDate`, plus an optional
     `deadline`. Completing by the deadline pays full XP; after it, half
     (`goalAward()`), snapshotted into the single log entry. Editing a
@@ -107,10 +116,16 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
   - `tasks`: daily goals tied to a `date`; overdue ones surface on Home.
   - `log`: XP entries `{type: habit|goal|task|bonus|penalty|finance, refId, name, xp, date, at}`. Total XP
     is always the sum of `log`. `done` flags are re-derived from the log in `normalise()`.
-  - `bonus` entries are the weekly completion bonus: one per habit per week, XP
-    snapshotted at the moment it is earned, dated to the session that finished
-    the week. They are derived, so `undoLast()` steps over them and the calendar
-    gives them no Remove button — remove one of the week's sessions instead.
+  - `bonus` entries are the weekly or monthly completion bonus: one per habit
+    per week (or per calendar month), XP snapshotted at the moment it is
+    earned, dated to the session that finished the period. Each carries
+    `span` (`'week'`|`'month'`; normalise defaults missing to `'week'`, so
+    every pre-change bonus stays weekly) which keeps the two reconcilers out
+    of each other's way — `weekBonusEntry()` only sees week-span entries,
+    `monthBonusEntry()` only month-span. They are derived, so `undoLast()`
+    steps over them and the calendar gives them no Remove button (tagged
+    "weekly bonus"/"monthly bonus") — remove one of the period's sessions
+    instead.
 - Level curve + cap: `xpForLevel(L) = round(90.7(L-1) + 9.2869(L-1)^2)` -
   gentle early, rising per-level cost, calibrated so level 100 costs exactly
   100,000 XP. Level 100 (`LEVEL_CAP`) is the hard maximum and level 80
@@ -173,6 +188,22 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     habits, done daily goals and done objectives across Home, Tasks and
     Sections; every hidden list leaves a tappable "N done hidden" hint.
 
+- **Draft + screen persistence** (`level.ui`, separate from `level.v2`): the
+  live UI state - open tab/sub-screen, open form (`editing`/`adding`), every
+  unsaved input value, staged finance sub-rows, scroll - is captured to
+  localStorage continuously (debounced on input/click/render, flushed on
+  `visibilitychange`-hidden and `pagehide`, because iOS silently discards
+  backgrounded PWAs) and restored at boot: `applyUISnapshot()` first, then
+  `render()`, then `restoreUIFields()` refills only fields the render
+  actually produced. Everything is validated against the loaded data (bad
+  tab, deleted item's form, junk JSON → dropped; prefer not restoring over
+  restoring wrongly). Drafts never write to `state`, restoring never commits
+  an item, and Save/Cancel closes the form so the next snapshot no longer
+  carries it. Deliberate resets (`resetAll`, restore-backup) call
+  `clearUI()`. The app therefore reopens on the exact screen it was left on;
+  Home only when the owner last chose Home. Tests that plant a snapshot must
+  disarm capture first (`clearTimeout(uiCapT)` + patch the functions) or the
+  pagehide flush overwrites the plant.
 - All user strings go through `esc()` before entering HTML.
 - **Theme.** Every colour the app paints is a CSS custom property on `:root`;
   `:root[data-theme="dark"]` restates the values and nothing else. Never write a
@@ -187,7 +218,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 343 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 395 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.

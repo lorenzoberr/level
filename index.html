@@ -335,6 +335,11 @@
   .mini{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg);margin-top:8px}
   .mini:active{opacity:.8}
   .mini.dim{background:transparent;color:var(--muted);font-weight:500;padding-left:2px}
+  /* habits linked to an objective: a visual grouping under its row */
+  .oblink{margin:-2px 0 6px 18px;border-left:2px solid var(--line);padding:2px 0 2px 10px}
+  .oblink-row{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);padding:3px 0}
+  .oblink-row .dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+  .oblink-row .num{margin-left:auto}
 
   /* ---------- home quick-nav + sub-screen header ---------- */
   .quicknav{display:flex;gap:8px;margin:-6px 0 16px}
@@ -485,6 +490,11 @@ function weekStart(iso){
 }
 // Days remaining in the week counting today: Monday 7 ... Sunday 1.
 const daysLeftInWeek=iso=>{const d=parseLocal(iso);return d?7-((d.getDay()+6)%7):0;};
+/* Months are calendar months, local. monthOf() keys a day to its month the
+   same way weekStart() keys it to its week - the ISO string is already local. */
+const monthOf=iso=>iso.slice(0,7);
+// Days remaining in the month counting today: the 1st = the month's length ... last day = 1.
+const daysLeftInMonth=iso=>{const d=parseLocal(iso);return d?new Date(d.getFullYear(),d.getMonth()+1,0).getDate()-d.getDate()+1:0;};
 
 /* =================================================================
    MISC HELPERS
@@ -610,10 +620,14 @@ function normalise(d){
   out.habits=Array.isArray(d.habits)?d.habits.filter(h=>h&&typeof h==='object').map(h=>({
     id:String(h.id||uid()),name:String(h.name||'Untitled').slice(0,60),
     xp:clampInt(h.xp,1,100000)||10,
-    mode:h.mode==='multi'?'multi':h.mode==='weekly'?'weekly':'daily',
-    // only meaningful for mode 'weekly', but always present so the shape is stable
+    mode:h.mode==='multi'?'multi':h.mode==='weekly'?'weekly':h.mode==='monthly'?'monthly':'daily',
+    // only meaningful for their mode, but always present so the shape is stable
     perWeek:clampInt(h.perWeek,1,14)||3,
+    perMonth:clampInt(h.perMonth,1,31)||6,
     bonus:clampInt(h.bonus,0,100000)||0,
+    // optional link to the objective this habit works toward - a visual
+    // grouping only, never a calculation; none by default
+    objectiveId:h.objectiveId?String(h.objectiveId):null,
     cat:fixCat(h.cat)})):[];
   out.goals=Array.isArray(d.goals)?d.goals.filter(g=>g&&typeof g==='object').map(g=>({
     id:String(g.id||uid()),name:String(g.name||'Untitled').slice(0,60),
@@ -636,6 +650,10 @@ function normalise(d){
       if(g.mStart===null) g.mStart=g.mCur;
     }
   });
+  // a habit's objective link must point at an objective that exists;
+  // anything else (missing field, deleted objective) repairs to none
+  const goalIds=new Set(out.goals.map(g=>g.id));
+  out.habits.forEach(h=>{if(h.objectiveId!==null&&!goalIds.has(h.objectiveId))h.objectiveId=null;});
 
   out.tasks=Array.isArray(d.tasks)?d.tasks.filter(t=>t&&typeof t==='object'&&isValidISO(t.date)).map(t=>({
     id:String(t.id||uid()),name:String(t.name||'Untitled').slice(0,80),
@@ -645,9 +663,12 @@ function normalise(d){
     // v1 entries used habitId/goalId; v2 uses type/refId
     const type=e.type||(e.goalId?'goal':'habit');
     const refId=e.refId||e.habitId||e.goalId||null;
-    return {id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':type==='bonus'?'bonus':type==='penalty'?'penalty':type==='finance'?'finance':'habit',refId:refId?String(refId):null,
+    const ent={id:String(e.id||uid()),type:type==='goal'?'goal':type==='task'?'task':type==='bonus'?'bonus':type==='penalty'?'penalty':type==='finance'?'finance':'habit',refId:refId?String(refId):null,
       name:String(e.name||'Entry').slice(0,60),xp:clampInt(e.xp,-100000,100000)||0,date:e.date,
       at:Number.isFinite(e.at)?e.at:0};
+    // bonus entries record which period earned them; anything older is weekly
+    if(ent.type==='bonus') ent.span=e.span==='month'?'month':'week';
+    return ent;
   }):[];
 
   // At most one weekly bonus per habit per week. Past bonuses are never
@@ -656,7 +677,7 @@ function normalise(d){
   const seenBonus=new Set();
   out.log=out.log.filter(e=>{
     if(e.type!=='bonus') return true;
-    const k=e.refId+'|'+weekStart(e.date);
+    const k=e.refId+'|'+(e.span==='month'?monthOf(e.date):weekStart(e.date));
     if(seenBonus.has(k)) return false;
     seenBonus.add(k); return true;
   });
@@ -807,7 +828,7 @@ function weekLog(habitId,iso){
 const weekCount=(habitId,iso)=>weekLog(habitId,iso).length;
 function weekBonusEntry(habitId,iso){
   const w=weekStart(iso);
-  return state.log.find(e=>e.type==='bonus'&&e.refId===habitId&&weekStart(e.date)===w)||null;
+  return state.log.find(e=>e.type==='bonus'&&e.span!=='month'&&e.refId===habitId&&weekStart(e.date)===w)||null;
 }
 const weeklyLeft=(h,iso)=>Math.max(0,h.perWeek-weekCount(h.id,iso));
 // True when there are no longer enough days left in the week to miss today.
@@ -815,6 +836,26 @@ function weeklyDue(h,iso){
   if(h.mode!=='weekly') return false;
   const left=weeklyLeft(h,iso);
   return left>0&&left>=daysLeftInWeek(iso);
+}
+
+/* ---- monthly habits ----
+   The calendar-month mirror of the weekly machinery: N sessions per local
+   calendar month, each paying its own XP, a one-off bonus on the Nth. */
+function monthLog(habitId,iso){
+  const m=monthOf(iso);
+  return state.log.filter(e=>e.type==='habit'&&e.refId===habitId&&monthOf(e.date)===m);
+}
+const monthCount=(habitId,iso)=>monthLog(habitId,iso).length;
+function monthBonusEntry(habitId,iso){
+  const m=monthOf(iso);
+  return state.log.find(e=>e.type==='bonus'&&e.span==='month'&&e.refId===habitId&&monthOf(e.date)===m)||null;
+}
+const monthlyLeft=(h,iso)=>Math.max(0,h.perMonth-monthCount(h.id,iso));
+// True when there are no longer enough days left in the month to miss today.
+function monthlyDue(h,iso){
+  if(h.mode!=='monthly') return false;
+  const left=monthlyLeft(h,iso);
+  return left>0&&left>=daysLeftInMonth(iso);
 }
 
 /* ---- weight ----
@@ -847,7 +888,7 @@ function tasksOn(iso){return state.tasks.filter(t=>t.date===iso);}
    carried over from earlier days, which is what the icon badge counts. */
 function pendingToday(){
   const t=todayISO();
-  const habits=state.habits.filter(h=>h.mode==='daily'?!loggedOn(h.id,t).length:weeklyDue(h,t));
+  const habits=state.habits.filter(h=>h.mode==='daily'?!loggedOn(h.id,t).length:h.mode==='monthly'?monthlyDue(h,t):weeklyDue(h,t));
   const tasks=state.tasks.filter(x=>x.date===t&&!x.done);
   const overdue=overdueTasks();
   const count=habits.length+tasks.length;
@@ -1004,8 +1045,31 @@ function reconcileWeek(habitId,iso){
   if(earned&&!existing){
     // dated to the session that completed the week, so it lands on that day
     const last=weekLog(habitId,iso).slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.at-b.at).pop();
-    state.log.push({id:uid(),type:'bonus',refId:habitId,
+    state.log.push({id:uid(),type:'bonus',span:'week',refId:habitId,
       name:h.name+' — '+h.perWeek+'× in a week',xp:h.bonus,
+      date:last?last.date:iso,at:Date.now()});
+    return 'awarded';
+  }
+  if(!earned&&existing){
+    state.log=state.log.filter(e=>e.id!==existing.id);
+    return 'revoked';
+  }
+  return null;
+}
+
+/* The calendar-month mirror of reconcileWeek: award or take back the
+   completion bonus for the single month `iso` falls in, and no other.
+   The XP is snapshotted into the entry the moment it is earned, and the
+   span marker keeps weekly and monthly bonuses out of each other's way. */
+function reconcileMonth(habitId,iso){
+  const h=state.habits.find(x=>x.id===habitId); if(!h) return null;
+  const existing=monthBonusEntry(habitId,iso);
+  const earned=h.mode==='monthly'&&h.bonus>0&&monthCount(habitId,iso)>=h.perMonth;
+  if(earned&&!existing){
+    // dated to the session that completed the month, so it lands on that day
+    const last=monthLog(habitId,iso).slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.at-b.at).pop();
+    state.log.push({id:uid(),type:'bonus',span:'month',refId:habitId,
+      name:h.name+' — '+h.perMonth+'× in a month',xp:h.bonus,
       date:last?last.date:iso,at:Date.now()});
     return 'awarded';
   }
@@ -1028,10 +1092,10 @@ function logHabit(id,iso){
   }
   state.log.push({id:uid(),type:'habit',refId:id,name:h.name,xp:h.xp,date:iso,at:Date.now()});
   if(iso!==todayISO()) reconcilePenalties();          // backfilling can lift a level penalty
-  const bonus=h.mode==='weekly'?reconcileWeek(id,iso):null;
+  const bonus=h.mode==='weekly'?reconcileWeek(id,iso):h.mode==='monthly'?reconcileMonth(id,iso):null;
   save();afterXPChange();render();
   if(charAnim==='pop') return;                       // the level-up toast already fired
-  if(bonus==='awarded') toast(h.perWeek+'× done — bonus +'+fmt(h.bonus)+' XP',true);
+  if(bonus==='awarded') toast((h.mode==='monthly'?h.perMonth:h.perWeek)+'× done — bonus +'+fmt(h.bonus)+' XP',true);
   else toast('+'+h.xp+' XP');
 }
 // Half XP once an objective's deadline has passed: the goal was to do it by
@@ -1064,8 +1128,12 @@ function removeEntry(entryId){
   state.log=state.log.filter(x=>x.id!==entryId);
   if(e.type==='goal'){const g=state.goals.find(x=>x.id===e.refId);if(g){g.done=false;g.doneDate=null;}}
   if(e.type==='task'){const t=state.tasks.find(x=>x.id===e.refId);if(t)t.done=false;}
-  // dropping a session can take the week back under its target
-  if(e.type==='habit') reconcileWeek(e.refId,e.date);
+  // dropping a session can take the week (or month) back under its target
+  if(e.type==='habit'){
+    const h=state.habits.find(x=>x.id===e.refId);
+    if(h&&h.mode==='monthly') reconcileMonth(e.refId,e.date);
+    else reconcileWeek(e.refId,e.date);
+  }
   // and emptying a past day entirely can earn a level penalty
   if(e.date!==todayISO()) reconcilePenalties();
   save();afterXPChange();render();toast('Removed '+e.name);
@@ -1213,23 +1281,32 @@ function saveHabit(){
   const name=(document.getElementById('f-h-name').value||'').trim().slice(0,60);
   const xp=intIn(document.getElementById('f-h-xp').value,1,100000);
   const raw=document.getElementById('f-h-mode').value;
-  const mode=raw==='multi'?'multi':raw==='weekly'?'weekly':'daily';
+  const mode=raw==='multi'?'multi':raw==='weekly'?'weekly':raw==='monthly'?'monthly':'daily';
   const cat=document.getElementById('f-h-cat').value;
   if(!name) return toast('Give it a name');
   if(xp===null) return toast('XP must be a whole number between 1 and 100,000');
-  let perWeek=3,bonus=0;
+  let perWeek=3,perMonth=6,bonus=0;
   if(mode==='weekly'){
     perWeek=intIn(document.getElementById('f-h-per').value,1,14);
     bonus=intIn(document.getElementById('f-h-bonus').value,0,100000);
     if(perWeek===null) return toast('Times a week must be a whole number between 1 and 14');
     if(bonus===null) return toast('Bonus XP must be a whole number between 0 and 100,000');
   }
+  if(mode==='monthly'){
+    perMonth=intIn(document.getElementById('f-h-perm').value,1,31);
+    bonus=intIn(document.getElementById('f-h-bonusm').value,0,100000);
+    if(perMonth===null) return toast('Times a month must be a whole number between 1 and 31');
+    if(bonus===null) return toast('Bonus XP must be a whole number between 0 and 100,000');
+  }
   if(!state.cats.some(c=>c.id===cat)) return toast('Pick a section');
+  // the optional objective link: a grouping only, validated against the live list
+  const objRaw=(document.getElementById('f-h-obj')||{value:''}).value;
+  const objectiveId=objRaw&&state.goals.some(g=>g.id===objRaw)?objRaw:null;
   if(editing&&editing.type==='habit'){
     const h=state.habits.find(x=>x.id===editing.id);
     if(h){
       const oldMode=h.mode;
-      Object.assign(h,{name,xp,mode,cat,perWeek,bonus});
+      Object.assign(h,{name,xp,mode,cat,perWeek,perMonth,bonus,objectiveId});
       // if switched repeatable -> once a day, collapse any day with several entries to one
       if(oldMode!=='daily'&&mode==='daily'){
         const seen=new Set();
@@ -1238,13 +1315,15 @@ function saveHabit(){
           if(seen.has(e.date)) return false; seen.add(e.date); return true;
         });
       }
-      // the current week follows the new rule; earlier weeks keep what they earned
-      reconcileWeek(h.id,todayISO());
+      // the current week/month follows the new rule; earlier periods keep
+      // what they earned, and each span only ever touches its own bonuses
+      if(oldMode==='weekly'||mode==='weekly') reconcileWeek(h.id,todayISO());
+      if(oldMode==='monthly'||mode==='monthly') reconcileMonth(h.id,todayISO());
       // past entries keep their original name/xp on purpose: history stays true
     }
     editing=null;adding=null;toast('Habit updated');
   }else{
-    state.habits.push({id:uid(),name,xp,mode,cat,perWeek,bonus});adding=null;toast('Habit added');
+    state.habits.push({id:uid(),name,xp,mode,cat,perWeek,perMonth,bonus,objectiveId});adding=null;toast('Habit added');
   }
   save();afterXPChange();render();
 }
@@ -1306,6 +1385,8 @@ function deleteGoal(id){
   if(!confirm('Delete "'+g.name+'"?'+(g.done?' Its '+paid+' XP will be removed from your total.':''))) return;
   state.goals=state.goals.filter(x=>x.id!==id);
   state.log=state.log.filter(e=>!(e.type==='goal'&&e.refId===id));
+  // linked habits survive their objective; only the link clears
+  state.habits.forEach(h=>{if(h.objectiveId===id)h.objectiveId=null;});
   if(editing&&editing.type==='goal'&&editing.id===id) editing=null;
   save();afterXPChange();render();toast('Objective deleted');
 }
@@ -1354,7 +1435,7 @@ function importData(input){
       const d=JSON.parse(r.result);
       if(!d||!Array.isArray(d.habits)||!Array.isArray(d.log)) throw new Error('shape');
       if(!confirm('Replace everything in the app with this backup?')) return;
-      state=normalise(d);save();lastLevel=levelInfo(totalXP()).level;editing=null;render();toast('Backup restored');
+      state=normalise(d);save();clearUI();lastLevel=levelInfo(totalXP()).level;editing=null;adding=null;render();toast('Backup restored');
     }catch(e){toast('That file is not a valid backup');}
   };
   r.onerror=()=>toast('Could not read that file');
@@ -1363,7 +1444,7 @@ function importData(input){
 }
 function resetAll(){
   if(!confirm('Delete absolutely everything and start the app as new? This cannot be undone.')) return;
-  state=seed();save();
+  state=seed();save();clearUI();
   lastLevel=1;editing=null;adding=null;pickedColor=PALETTE[0];tab='home';
   render();                                   // setup is false again: the welcome flow returns
 }
@@ -1465,6 +1546,7 @@ function habitRow(h,iso){
   const done=loggedOn(h.id,iso);
   const isDaily=h.mode==='daily';
   const isWeekly=h.mode==='weekly';
+  const isMonthly=h.mode==='monthly';
   const isDone=isDaily&&done.length>0;
   let sub,met=false;
   if(isWeekly){
@@ -1473,6 +1555,13 @@ function habitRow(h,iso){
     sub=pipsHTML(n,h.perWeek,c.color)+(met&&n>h.perWeek?n+' this week':n+' of '+h.perWeek+' this week');
     if(met) sub+=' &middot; <span class="met">done'+(h.bonus?', +'+fmt(h.bonus)+' bonus':'')+'</span>';
     else if(weeklyDue(h,iso)) sub+=' &middot; <span class="due">'+(left>1?left+' left, go today':'go today')+'</span>';
+    else sub+=' &middot; '+left+' to go';
+  }else if(isMonthly){
+    const n=monthCount(h.id,iso),left=Math.max(0,h.perMonth-n);
+    met=left===0;
+    sub=pipsHTML(n,h.perMonth,c.color)+(met&&n>h.perMonth?n+' this month':n+' of '+h.perMonth+' this month');
+    if(met) sub+=' &middot; <span class="met">done'+(h.bonus?', +'+fmt(h.bonus)+' bonus':'')+'</span>';
+    else if(monthlyDue(h,iso)) sub+=' &middot; <span class="due">'+(left>1?left+' left, go today':'go today')+'</span>';
     else sub+=' &middot; '+left+' to go';
   }else if(isDaily){
     sub=isDone?'Done. Tap to undo.':'Once a day';
@@ -1666,7 +1755,8 @@ function viewHome(){
   // a ticked daily habit, or a weekly habit whose count is met
   const habitsDone=state.habits.filter(h=>
     (h.mode==='daily'&&loggedOn(h.id,t).length)||
-    (h.mode==='weekly'&&weeklyLeft(h,t)===0)).length;
+    (h.mode==='weekly'&&weeklyLeft(h,t)===0)||
+    (h.mode==='monthly'&&monthlyLeft(h,t)===0)).length;
   const showToggle=doneCount+habitsDone>0||state.hideDone;
   const goalsBlock=`<div class="goals-head"><h2>Today's goals${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>
       <div>${showToggle?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button> `:''}<button data-act="go-tasks">+ Add goal</button></div></div>`+
@@ -1686,7 +1776,8 @@ function viewHome(){
     // whose count is met. Repeatable habits have no done state.
     const shown=state.hideDone?hs.filter(h=>!(
       (h.mode==='daily'&&loggedOn(h.id,t).length)||
-      (h.mode==='weekly'&&weeklyLeft(h,t)===0)
+      (h.mode==='weekly'&&weeklyLeft(h,t)===0)||
+      (h.mode==='monthly'&&monthlyLeft(h,t)===0)
     )):hs;
     return `<h2><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span class="count num">${fmt(catToday)} XP today</span></h2>`+
       (shown.length?shown.map(h=>habitRow(h,t)).join('')
@@ -1773,7 +1864,7 @@ function viewCalendar(){
     ${selFuture?'':selEntries.length?selEntries.map(e=>{
       const src=e.type==='goal'?state.goals.find(g=>g.id===e.refId):e.type==='task'?state.tasks.find(x=>x.id===e.refId):state.habits.find(h=>h.id===e.refId);
       const col=src?catOf(src.cat).color:'#94A3B8';
-      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?'weekly bonus':e.type==='penalty'?'level down':e.type==='finance'?'close-out':'';
+      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?(e.span==='month'?'monthly bonus':'weekly bonus'):e.type==='penalty'?'level down':e.type==='finance'?'close-out':'';
       // bonuses and penalties are derived: no Remove of their own. A penalty
       // goes away by backfilling a habit onto its two quiet days.
       return `<div class="entry"><span class="edge" style="background:${col}"></span>
@@ -1857,14 +1948,20 @@ function habitFormHTML(ed,presetCat){
     ${suggHTML('f-h-xp',100)}
     <div class="two">
       <div class="field"><label for="f-h-xp">XP</label><input id="f-h-xp" type="number" inputmode="numeric" min="1" step="1" value="${ed?ed.xp:25}"></div>
-      <div class="field"><label for="f-h-mode">How often</label><select id="f-h-mode"><option value="daily" ${ed&&ed.mode==='daily'?'selected':''}>Once a day</option><option value="multi" ${ed&&ed.mode==='multi'?'selected':''}>Repeatable</option><option value="weekly" ${ed&&ed.mode==='weekly'?'selected':''}>Times a week</option></select></div>
+      <div class="field"><label for="f-h-mode">How often</label><select id="f-h-mode"><option value="daily" ${ed&&ed.mode==='daily'?'selected':''}>Once a day</option><option value="multi" ${ed&&ed.mode==='multi'?'selected':''}>Repeatable</option><option value="weekly" ${ed&&ed.mode==='weekly'?'selected':''}>Times a week</option><option value="monthly" ${ed&&ed.mode==='monthly'?'selected':''}>Times a month</option></select></div>
     </div>
     <div id="f-h-weekly" class="two ${ed&&ed.mode==='weekly'?'':'hidden'}">
       <div class="field"><label for="f-h-per">Times a week</label><input id="f-h-per" type="number" inputmode="numeric" min="1" max="14" step="1" value="${ed&&ed.mode==='weekly'?ed.perWeek:3}"></div>
       <div class="field"><label for="f-h-bonus">Bonus when hit</label><input id="f-h-bonus" type="number" inputmode="numeric" min="0" step="1" value="${ed&&ed.mode==='weekly'?ed.bonus:50}"></div>
     </div>
     <div id="f-h-weekly-note" class="note ${ed&&ed.mode==='weekly'?'':'hidden'}" style="margin-bottom:10px">Each session pays its XP. Finishing the week's count pays the bonus once, on top. Weeks run Monday to Sunday.</div>
+    <div id="f-h-monthly" class="two ${ed&&ed.mode==='monthly'?'':'hidden'}">
+      <div class="field"><label for="f-h-perm">Times a month</label><input id="f-h-perm" type="number" inputmode="numeric" min="1" max="31" step="1" value="${ed&&ed.mode==='monthly'?ed.perMonth:6}"></div>
+      <div class="field"><label for="f-h-bonusm">Bonus when hit</label><input id="f-h-bonusm" type="number" inputmode="numeric" min="0" step="1" value="${ed&&ed.mode==='monthly'?ed.bonus:50}"></div>
+    </div>
+    <div id="f-h-monthly-note" class="note ${ed&&ed.mode==='monthly'?'':'hidden'}" style="margin-bottom:10px">Each session pays its XP. Finishing the month's count pays the bonus once, on top. Months are calendar months.</div>
     <div class="field"><label for="f-h-cat">Section</label><select id="f-h-cat">${catOptions(ed?ed.cat:presetCat)}</select></div>
+    <div class="field"><label for="f-h-obj">Works toward (optional)</label><select id="f-h-obj"><option value="">None</option>${state.goals.map(g=>`<option value="${esc(g.id)}" ${ed&&ed.objectiveId===g.id?'selected':''}>${esc(g.name)}</option>`).join('')}</select></div>
     <div class="inline"><button class="btn primary" data-act="save-habit">${ed?'Save changes':'Add habit'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
   </div>`;
 }
@@ -1888,6 +1985,14 @@ function goalFormHTML(ed,presetCat){
   </div>`;
 }
 
+/* The habits that declare they work toward an objective, grouped under its
+   row. A visual grouping only: nothing is computed from the link. */
+function linkedHabitsHTML(g){
+  const hs=state.habits.filter(h=>h.objectiveId===g.id);
+  if(!hs.length) return '';
+  return `<div class="oblink">${hs.map(h=>`<div class="oblink-row"><span class="dot" style="background:${catOf(h.cat).color}"></span>${esc(h.name)}<span class="num">${h.mode==='daily'?'daily':h.mode==='weekly'?h.perWeek+'&times;/week':h.mode==='monthly'?h.perMonth+'&times;/month':'repeatable'}</span></div>`).join('')}</div>`;
+}
+
 /* One box per section, its habits and objectives together inside it. Add and
    edit forms open in place, inside the box they belong to. */
 function viewSections(){
@@ -1906,7 +2011,7 @@ function viewSections(){
     const addHabit=adding&&adding.type==='habit'&&adding.cat===c.id;
     const addGoal=adding&&adding.type==='goal'&&adding.cat===c.id;
     const habitRows=hs.map(h=>`<div class="row"><div class="edge"></div>
-      <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':h.mode==='weekly'?h.perWeek+'&times; a week'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):'Repeatable'} &middot; ${h.xp} XP</div></div>
+      <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':h.mode==='weekly'?h.perWeek+'&times; a week'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):h.mode==='monthly'?h.perMonth+'&times; a month'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):'Repeatable'} &middot; ${h.xp} XP${h.objectiveId?(g=>g?' &middot; &rarr; '+esc(g.name):'')(state.goals.find(g=>g.id===h.objectiveId)):''}</div></div>
       <div class="acts"><button data-act="edit-habit" data-id="${esc(h.id)}">Edit</button><button class="danger" data-act="del-habit" data-id="${esc(h.id)}">Delete</button></div></div>`).join('');
     return `<div class="secbox" style="border-top:3px solid ${c.color}">
       <div class="sechead"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b>
@@ -1916,7 +2021,7 @@ function viewSections(){
       ${habitRows||`<div class="empty">No habits yet.</div>`}
       ${edHabit?habitFormHTML(edHabit,c.id):addHabit?habitFormHTML(null,c.id):`<button class="mini" data-act="add-habit" data-id="${esc(c.id)}">+ Add habit</button>`}
       <h3>Objectives${done.length?`<span class="count num" style="float:right;font-weight:500">${done.length} done</span>`:''}</h3>
-      ${open.map(g=>goalRow(g,{manage:true})).join('')+(state.hideDone?'':done.map(g=>goalRow(g,{manage:true})).join(''))||(state.hideDone&&done.length?'':`<div class="empty">No objectives yet.</div>`)}
+      ${open.map(g=>goalRow(g,{manage:true})+linkedHabitsHTML(g)).join('')+(state.hideDone?'':done.map(g=>goalRow(g,{manage:true})+linkedHabitsHTML(g)).join(''))||(state.hideDone&&done.length?'':`<div class="empty">No objectives yet.</div>`)}
       ${state.hideDone&&done.length?`<button class="mini dim" data-act="toggle-done">${done.length} done hidden &middot; show</button>`:''}
       ${edGoal?goalFormHTML(edGoal,c.id):addGoal?goalFormHTML(null,c.id):`<button class="mini" data-act="add-objective" data-id="${esc(c.id)}">+ Add objective</button>`}
     </div>`;
@@ -1937,7 +2042,7 @@ function headroomEstimate(){
   const weeks=Math.ceil(days/7);
   let maxH=0;
   for(const h of state.habits){
-    const occ=h.mode==='weekly'?weeks*h.perWeek:days;             // multi treated as once a day
+    const occ=h.mode==='weekly'?weeks*h.perWeek:h.mode==='monthly'?Math.ceil(days/30)*h.perMonth:days; // multi treated as once a day
     maxH+=occ*h.xp;
   }
   const maxO=state.goals.reduce((s,g)=>s+g.xp,0);
@@ -2069,6 +2174,10 @@ function viewProgress(){
         }
         if(weeks>0&&hit<weeks) watch.push(`<b>${esc(h.name)}</b>: hit ${hit} of ${weeks} full week${weeks===1?'':'s'} ${label}`);
       }
+    });
+    if(kind==='month') state.habits.filter(h=>h.mode==='monthly').forEach(h=>{
+      const left=monthlyLeft(h,t);
+      if(left>0) watch.push(`<b>${esc(h.name)}</b>: ${monthCount(h.id,t)} of ${h.perMonth} so far - ${left} more by month end keeps the bonus`);
     });
     state.log.filter(e=>e.type==='penalty'&&inRange(e)).forEach(e=>
       watch.push(`<b>Level lost</b> on ${esc(fmtShort(e.date))}: two days with nothing logged (${fmt(e.xp)} XP)`));
@@ -2486,6 +2595,7 @@ function render(){
   if(!state.setup){                    // first open: the welcome flow, nothing else
     tabsEl.classList.add('hidden');
     document.getElementById('view').innerHTML=viewSetup();
+    scheduleCapture();
     return;
   }
   tabsEl.classList.remove('hidden');
@@ -2495,6 +2605,7 @@ function render(){
   const barTab=['tasks','sections','progress','weight'].includes(tab)?'home':tab;
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===barTab?'true':'false'));
   updateBadge();
+  scheduleCapture();
 }
 
 const ACTIONS={
@@ -2575,6 +2686,7 @@ document.addEventListener('click',e=>{
   const fn=ACTIONS[el.dataset.act]; if(!fn) return;
   e.preventDefault();
   fn(el.dataset.id,el);
+  scheduleCapture();
 });
 document.addEventListener('change',e=>{
   if(!e.target) return;
@@ -2583,13 +2695,18 @@ document.addEventListener('change',e=>{
   if(e.target.id==='f-penalty') setPenaltyPref(e.target.checked);
   if(e.target.dataset&&e.target.dataset.finspent) saveSpent(e.target.dataset.finspent,e.target.value);
   // shown/hidden in place rather than re-rendering, so a half-typed name survives
-  if(e.target.id==='f-h-mode'){
-    const on=e.target.value==='weekly';
-    ['f-h-weekly','f-h-weekly-note'].forEach(id=>{
-      const el=document.getElementById(id); if(el) el.classList.toggle('hidden',!on);
-    });
-  }
+  if(e.target.id==='f-h-mode') syncHabitModeFields();
 });
+// The weekly and monthly field blocks in the habit form follow the mode
+// select, shown/hidden in place rather than re-rendering, so a half-typed
+// name survives. Also called after a draft restore re-fills the select.
+function syncHabitModeFields(){
+  const sel=document.getElementById('f-h-mode'); if(!sel) return;
+  const v=sel.value;
+  [['f-h-weekly',v==='weekly'],['f-h-weekly-note',v==='weekly'],
+   ['f-h-monthly',v==='monthly'],['f-h-monthly-note',v==='monthly']]
+   .forEach(([id,on])=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',!on);});
+}
 // rows are divs with role="button": make the keyboard behave like the tap
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'&&e.key!==' ') return;
@@ -2607,6 +2724,109 @@ document.addEventListener('keydown',e=>{
   const btn=box&&box.querySelector(line?'.btn':'.btn.primary');
   if(btn){e.preventDefault();btn.click();}
 });
+
+/* =================================================================
+   DRAFT + SCREEN PERSISTENCE
+   iOS silently discards a backgrounded PWA, so the live UI state -
+   which screen is open, which form, and every unsaved keystroke -
+   is mirrored continuously into its own localStorage key
+   ('level.ui') and rebuilt on the next load. Strictly separate from
+   real data: nothing here writes to state or level.v2, restoring
+   never commits an item, and a deliberate Save or Cancel closes the
+   form so the next snapshot no longer carries it. Every restored
+   piece is validated against the CURRENT data first - a form whose
+   item no longer exists, a bad tab name, junk JSON - and anything
+   that fails is dropped rather than guessed at: when in doubt, do
+   not restore. Flushed on visibilitychange/pagehide because iOS can
+   kill a backgrounded page without warning.
+================================================================== */
+const KEY_UI='level.ui';
+const TAB_NAMES=['home','tasks','sections','calendar','progress','settings','finances','weight'];
+let uiCapT=null;
+function captureUI(){
+  uiCapT=null;
+  try{
+    const fields={};
+    document.querySelectorAll('#view input,#view select').forEach(el=>{
+      if(el.type==='file'||el.type==='checkbox') return;   // checkboxes commit on tap
+      const k=el.id||(el.dataset&&el.dataset.finspent?'finspent:'+el.dataset.finspent:'');
+      if(k) fields[k]=el.value;
+    });
+    // subcategory rows in the finance form are staged DOM, captured as a list
+    const subBox=document.getElementById('f-fc-subs');
+    const subrows=subBox?[...subBox.querySelectorAll('.subrow')].map(r=>({
+      id:r.dataset.subid||'',val:(i=>i?i.value:'')(r.querySelector('input'))})):null;
+    localStorage.setItem(KEY_UI,JSON.stringify({v:1,tab,prog,finMonth,
+      cal:{y:cal.y,m:cal.m,sel:cal.sel},editing,adding,pickedColor,pickedDir,
+      scroll:window.scrollY||0,fields,subrows,at:Date.now()}));
+  }catch(e){}
+}
+function scheduleCapture(){clearTimeout(uiCapT);uiCapT=setTimeout(captureUI,250);}
+function flushCapture(){clearTimeout(uiCapT);captureUI();}
+function clearUI(){try{localStorage.removeItem(KEY_UI);}catch(e){}}
+function loadUI(){
+  try{
+    const u=JSON.parse(localStorage.getItem(KEY_UI)||'null');
+    return u&&typeof u==='object'?u:null;
+  }catch(e){return null;}
+}
+// Rebuild the UI variables from a snapshot - each piece only if it still
+// makes sense against the data that actually loaded.
+function applyUISnapshot(u){
+  if(TAB_NAMES.includes(u.tab)) tab=u.tab;
+  if(u.prog==='day'||u.prog==='week'||u.prog==='month') prog=u.prog;
+  if(typeof u.finMonth==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(u.finMonth)&&u.finMonth<=curMonth()) finMonth=u.finMonth;
+  if(u.cal&&Number.isInteger(u.cal.y)&&Number.isInteger(u.cal.m)&&u.cal.m>=0&&u.cal.m<=11&&u.cal.y>=1970&&u.cal.y<=9999){
+    cal.y=u.cal.y;cal.m=u.cal.m;
+    if(isValidISO(u.cal.sel)) cal.sel=u.cal.sel;
+  }
+  if(PALETTE.includes(u.pickedColor)) pickedColor=u.pickedColor;
+  if(u.pickedDir==='over'||u.pickedDir==='under') pickedDir=u.pickedDir;
+  const ed=u.editing,ad=u.adding;
+  if(ed&&typeof ed==='object'&&typeof ed.id==='string'){
+    const ok=ed.type==='cat'?state.cats.some(c=>c.id===ed.id)
+      :ed.type==='habit'?state.habits.some(h=>h.id===ed.id)
+      :ed.type==='goal'?state.goals.some(g=>g.id===ed.id)
+      :ed.type==='fincat'?state.finance.categories.some(c=>c.id===ed.id):false;
+    if(ok) editing={type:ed.type,id:ed.id};
+  }
+  if(!editing&&ad&&typeof ad==='object'){
+    if(ad.type==='cat'||ad.type==='fincat') adding={type:ad.type};
+    else if((ad.type==='habit'||ad.type==='goal')&&state.cats.some(c=>c.id===ad.cat)) adding={type:ad.type,cat:ad.cat};
+  }
+}
+// Refill only the inputs the restored render actually produced; a field
+// whose element no longer exists is skipped, never forced.
+function restoreUIFields(u){
+  if(!u.fields||typeof u.fields!=='object') return;
+  for(const k of Object.keys(u.fields)){
+    if(typeof u.fields[k]!=='string') continue;
+    let el=null;
+    if(k.indexOf('finspent:')===0){
+      const cid=k.slice(9);
+      el=[...document.querySelectorAll('input[data-finspent]')].find(x=>x.dataset.finspent===cid)||null;
+    }else el=document.getElementById(k);
+    if(!el||!(el instanceof HTMLInputElement||el instanceof HTMLSelectElement)) continue;
+    if(el.type==='file'||el.type==='checkbox') continue;
+    el.value=u.fields[k];
+  }
+  syncHabitModeFields();                       // the period blocks follow the restored mode
+  const subBox=document.getElementById('f-fc-subs');
+  if(subBox&&Array.isArray(u.subrows)){
+    subBox.innerHTML='';
+    for(const r of u.subrows){
+      if(!r||typeof r!=='object'||typeof r.val!=='string') continue;
+      const div=document.createElement('div');div.className='subrow';
+      if(typeof r.id==='string'&&r.id) div.dataset.subid=r.id;
+      div.innerHTML='<input maxlength="40" autocomplete="off" aria-label="Subcategory name"><button data-act="fc-sub-del" aria-label="Remove subcategory">&times;</button>';
+      div.querySelector('input').value=r.val;
+      subBox.appendChild(div);
+    }
+  }
+}
+// every keystroke keeps the draft snapshot current
+document.addEventListener('input',()=>scheduleCapture());
+window.addEventListener('pagehide',flushCapture);
 
 // When the app comes back after midnight, "today" must move on.
 let renderedDay=todayISO();
@@ -2633,7 +2853,7 @@ function minuteTick(){
   if(tab==='home'&&state.reminders.times.some(x=>x>lastTickHM&&x<=hm)) render();
   lastTickHM=hm;
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDayRollover();else updateBadge();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDayRollover();else{updateBadge();flushCapture();}});
 window.addEventListener('focus',checkDayRollover);
 window.addEventListener('pageshow',checkDayRollover);
 setInterval(minuteTick,60000);
@@ -2641,7 +2861,15 @@ setInterval(minuteTick,60000);
 applyTheme();
 const bootPenalties=reconcilePenalties();
 if(bootPenalties) lastLevel=levelInfo(totalXP()).level;
+// reopen exactly where the owner left off: screen first, then the render,
+// then the unsaved keystrokes back into the fields that render produced
+const bootUI=loadUI();
+if(bootUI) applyUISnapshot(bootUI);
 render();
+if(bootUI){
+  restoreUIFields(bootUI);
+  if(Number.isFinite(bootUI.scroll)&&bootUI.scroll>0) window.scrollTo(0,bootUI.scroll);
+}
 if(bootPenalties) penaltyToast(bootPenalties);
 
 if('serviceWorker' in navigator){

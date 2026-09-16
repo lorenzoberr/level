@@ -76,6 +76,14 @@ def demo_boot(page):
     page.reload()
     page.wait_for_selector(".hero")
 
+# The app now reopens on the exact screen it was left on (change four), so a
+# mid-test reload no longer lands on Home: wait for the app shell to render,
+# whatever screen that turns out to be, and navigate from there if needed.
+def reload_app(page):
+    page.reload()
+    page.wait_for_function("document.querySelector('#view') && document.querySelector('#view').childElementCount > 0")
+    page.wait_for_timeout(60)
+
 with sync_playwright() as p:
     browser = p.chromium.launch()
 
@@ -596,7 +604,7 @@ with sync_playwright() as p:
     check("forcing light overrides a dark phone",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
           and page.get_attribute("#tc", "content") == "#F3F5F9")
-    page.reload(); page.wait_for_selector(".hero")
+    reload_app(page)   # reopens on Settings, where the theme was forced
     check("the head script applies the forced theme before the first paint",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light")
     page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
@@ -651,7 +659,7 @@ with sync_playwright() as p:
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
         s.lastBackup = '2026-08-20';
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
-    page.reload(); page.wait_for_selector(".hero")
+    reload_app(page); goto(page, "home")   # the reload restores Settings now
     check("a stale backup brings the nudge back",
           page.locator(".remind.backup").count() == 1
           and "Last backup 19 days ago" in page.locator(".remind.backup").inner_text(),
@@ -699,8 +707,8 @@ with sync_playwright() as p:
           {date:'2026-09-07',kg:72.2},{date:'2026-09-08',kg:72.6},{date:'2026-09-10',kg:72.1}  // this week: avg 72.3
         ];
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
-    page.reload(); page.wait_for_selector(".hero")
-    goto(page, "weight")   # a reload lands on Home; the card lives on the sub-screen now
+    reload_app(page)       # the reload now restores the Weight sub-screen itself
+    goto(page, "weight")   # idempotent: routes via Home either way
     meta = page.locator(".wmeta").inner_text()
     check("weekly average shown for the running week", "72.3 kg" in meta and "3 mornings so far" in meta, meta)
     check("change against last week's average", "0.5 kg vs last week" in meta, meta)
@@ -734,7 +742,7 @@ with sync_playwright() as p:
         s.weight.entries.push({date:'2026-09-01',kg:9999},{date:'not-a-date',kg:72},{date:'2026-09-03'},
                               {date:'2026-09-02',kg:72.0},{date:'2026-09-02',kg:71.0});
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
-    page.reload(); page.wait_for_selector(".hero")
+    reload_app(page)   # reopens on the Calendar; the checks below read storage
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     days = [e["date"] for e in d["weight"]["entries"]]
     check("normalise drops junk weights, keeps one entry per day",
@@ -795,7 +803,7 @@ with sync_playwright() as p:
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
         s.goals[0].deadline = 'someday';
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
-    page.reload(); page.wait_for_selector(".hero")
+    reload_app(page)   # reopens on Sections; the check below reads storage
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("junk deadline repaired to none", d["goals"][0]["deadline"] is None)
     check("no JS errors in the deadline flow", not gerr, gerr)
@@ -1036,7 +1044,7 @@ with sync_playwright() as p:
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
         s.penaltyFrom = '2026-09-08';
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
-    page.reload(); page.wait_for_selector(".hero")
+    reload_app(page)   # reopens on Settings; the check below reads storage
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("after the boundary, quiet days count again - never before it",
           [e["date"] for e in d["log"] if e["type"] == "penalty"] == ["2026-09-09", "2026-09-11"],
@@ -1106,9 +1114,11 @@ with sync_playwright() as p:
           and d["deadline"] == "2026-12-31" and d["start"] == "2026-09-14"
           and d["weight"]["goal"] == 71 and len(d["cats"]) == 1
           and d["cats"][0]["name"] == "Fitness" and d["cats"][0]["color"] == "#22C55E", d)
-    page.reload(); page.wait_for_selector(".hero")
-    check("the welcome flow never returns, and the hero greets by name",
-          page.locator("#f-su-name").count() == 0 and "Lorenzo" in page.inner_text(".hero"))
+    reload_app(page)   # reopens in Sections with the first-habit form restored
+    check("the welcome flow never returns, and the draft habit form survives the reload",
+          page.locator("#f-su-name").count() == 0 and page.locator("#f-h-name").count() == 1)
+    goto(page, "home")
+    check("the hero greets by name", "Lorenzo" in page.inner_text(".hero"))
     page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.fill("#f-name", "Enzo")
     page.locator("button[data-act=save-name]").click(); page.wait_for_timeout(60)
@@ -1287,7 +1297,8 @@ with sync_playwright() as p:
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     hj = [h for h in d["habits"] if h["name"] == "Dialled habit"][0]
     check("typed XP wins and no dial fields are stored",
-          hj["xp"] == 33 and sorted(hj.keys()) == ["bonus", "cat", "id", "mode", "name", "perWeek", "xp"], hj)
+          hj["xp"] == 33 and sorted(hj.keys())
+          == ["bonus", "cat", "id", "mode", "name", "objectiveId", "perMonth", "perWeek", "xp"], hj)
     check("importance/effort appear nowhere in storage",
           "importance" not in page.evaluate("localStorage.getItem('level.v2')")
           and "effort" not in page.evaluate("localStorage.getItem('level.v2')"))
@@ -1310,7 +1321,7 @@ with sync_playwright() as p:
                     {id:'hC',name:'Gym',xp:110,mode:'weekly',perWeek:3,bonus:70,cat:'c-fit'}];
         s.goals = [{id:'gA',name:'Big lift',xp:2000,cat:'c-fit'}];
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
-    page.reload(); page.wait_for_selector(".hero")
+    reload_app(page)
     goto(page, "sections"); page.wait_for_selector(".secbox")
     # maxH = 122*(100+600) + 18*3*110 = 91,340; realistic = 68,505 + 1,000 = 69,505 -> under 70,000
     note = page.locator("#view .note", has_text="realistic consistency")
@@ -1320,7 +1331,7 @@ with sync_playwright() as p:
     page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
         s.goals[0].xp = 6000;                                   // realistic -> 71,505
         localStorage.setItem('level.v2', JSON.stringify(s)); }""")
-    page.reload(); page.wait_for_selector(".hero")
+    reload_app(page)
     goto(page, "sections"); page.wait_for_selector(".secbox")
     note = page.locator("#view .note", has_text="realistic consistency")
     check("advisory warns above 70,000 and says why",
@@ -1574,6 +1585,288 @@ with sync_playwright() as p:
     check("home still does not edit",
           page.locator("#view [data-act=add-habit], #view [data-act=edit-habit], #view [data-act=save-habit]").count() == 0)
     check("no JS errors in the restructure flow", not nerr, nerr)
+    ctx.close()
+
+
+    # ---------- 3t. monthly habits ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    moerr = []
+    page.on("pageerror", lambda e: moerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))  # Wed, 15 days left in Sept
+    page.on("dialog", lambda dlg: dlg.accept())
+    demo_boot(page)
+    # the fixture predates monthly habits: normalise fills the new fields, touches nothing else
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("pre-change habits gain the monthly defaults, otherwise unchanged",
+          all(h["perMonth"] == 6 and h["objectiveId"] is None for h in d["habits"])
+          and len(d["habits"]) == 5 and d["log"] == [], d["habits"])
+    # the rollover below crosses quiet days; that is the penalty's business, not this test's
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.penaltyPaused = true; localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    reload_app(page)
+
+    goto(page, "sections"); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    check("monthly fields hidden until 'Times a month' is picked",
+          "hidden" in page.locator("#f-h-monthly").get_attribute("class"))
+    page.fill("#f-h-name", "Deep clean")
+    page.fill("#f-h-xp", "40")
+    page.select_option("#f-h-mode", "monthly")
+    check("picking 'Times a month' reveals its fields and hides the weekly ones",
+          "hidden" not in page.locator("#f-h-monthly").get_attribute("class")
+          and "hidden" in page.locator("#f-h-weekly").get_attribute("class"))
+    page.fill("#f-h-perm", "3")
+    page.fill("#f-h-bonusm", "90")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    check("monthly habit listed with its count and bonus",
+          "3\u00d7 a month, +90 bonus" in page.locator(".row", has_text="Deep clean").inner_text(),
+          page.locator(".row", has_text="Deep clean").inner_text())
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    hm = [h for h in d["habits"] if h["name"] == "Deep clean"][0]
+    check("stored as mode monthly with perMonth and bonus",
+          hm["mode"] == "monthly" and hm["perMonth"] == 3 and hm["bonus"] == 90, hm)
+
+    goto(page, "home")
+    mrow = lambda: page.locator(".row[data-act=log]", has_text="Deep clean")
+    check("starts at 0 of 3 this month with 3 pips",
+          "0 of 3 this month" in mrow().inner_text() and mrow().locator(".pips i").count() == 3, mrow().inner_text())
+    check("mid-month with 15 days left does not nag", "go today" not in mrow().inner_text())
+    mrow().click(); page.wait_for_timeout(60)
+    check("one session logged: XP paid, 2 to go",
+          "1 of 3 this month" in mrow().inner_text() and "2 to go" in mrow().inner_text()
+          and page.inner_text(".total").strip() == "40", mrow().inner_text())
+    mrow().click(); page.wait_for_timeout(60)
+    check("XP is the sessions only, no bonus yet", page.inner_text(".total").strip() == "80")
+    mrow().click(); page.wait_for_timeout(60)
+    check("third session completes the month with the bonus on top",
+          "3 of 3 this month" in mrow().inner_text() and "done, +90 bonus" in mrow().inner_text()
+          and page.inner_text(".total").strip() == "210", mrow().inner_text())
+    check("bonus toast names the monthly count",
+          "3\u00d7 done \u2014 bonus +90 XP" in page.inner_text("#toast"), page.inner_text("#toast"))
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    mb = [e for e in d["log"] if e["type"] == "bonus"]
+    check("exactly one month-span bonus entry, dated to the finishing session",
+          len(mb) == 1 and mb[0]["span"] == "month" and mb[0]["date"] == "2026-09-16"
+          and mb[0]["xp"] == 90 and "in a month" in mb[0]["name"], mb)
+    # a fourth session pays its XP but never a second bonus
+    mrow().click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("extra session pays no second bonus",
+          len([e for e in d["log"] if e["type"] == "bonus"]) == 1
+          and page.inner_text(".total").strip() == "250")
+    check("row counts the extra session", "4 this month" in mrow().inner_text(), mrow().inner_text())
+    # undo steps over the bonus; dropping under the count takes it back; re-earning pays once
+    page.locator("button[data-act=undo]").click(); page.wait_for_timeout(60)
+    check("undo removes a session, not the bonus", page.inner_text(".total").strip() == "210")
+    page.locator("button[data-act=undo]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("falling under the monthly count takes the bonus back",
+          not [e for e in d["log"] if e["type"] == "bonus"]
+          and page.inner_text(".total").strip() == "80")
+    mrow().click(); page.wait_for_timeout(60)
+    check("re-earning pays the monthly bonus exactly once again", page.inner_text(".total").strip() == "210")
+    # the calendar shows it tagged as a monthly bonus, with no Remove of its own
+    goto(page, "calendar"); page.wait_for_selector(".cal")
+    mentry = page.locator(".entry", has_text="in a month")
+    check("calendar tags the monthly bonus and gives it no Remove button",
+          mentry.count() == 1 and "monthly bonus" in mentry.inner_text()
+          and mentry.locator("button[data-act=rm-entry]").count() == 0,
+          mentry.inner_text() if mentry.count() else "missing")
+    # daily habits still behave exactly as before alongside
+    goto(page, "home")
+    page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(50)
+    check("daily habit unchanged alongside monthly", page.inner_text(".total").strip() == "230")
+    page.locator(".row[data-act=log]", has_text="8k steps").click(); page.wait_for_timeout(50)
+    check("daily toggle-off unchanged", page.inner_text(".total").strip() == "210")
+
+    # near the month's end an unmet monthly habit starts nagging; a met one stays quiet
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.habits.push({id:'hm2',name:'Call grandma',xp:10,mode:'monthly',perMonth:2,bonus:0,cat:'c-personal'});
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    reload_app(page); goto(page, "home")
+    page.clock.run_for(14 * 24 * 60 * 60 * 1000)   # 16 -> 30 Sep, the month's last day
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(150)
+    grow2 = lambda: page.locator(".row[data-act=log]", has_text="Call grandma")
+    check("last day of the month: 2 owed, 1 day left, go today",
+          "0 of 2 this month" in grow2().inner_text() and "2 left, go today" in grow2().inner_text(),
+          grow2().inner_text())
+    check("a met monthly habit does not nag", "go today" not in mrow().inner_text(), mrow().inner_text())
+    # the month rolls over: counters reset, last month's XP and bonus stay put
+    page.clock.run_for(24 * 60 * 60 * 1000)   # 30 Sep -> 1 Oct
+    page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(150)
+    check("header moved to October", "1 October" in page.inner_text("#today"), page.inner_text("#today"))
+    check("monthly counter resets on the 1st", "0 of 3 this month" in mrow().inner_text(), mrow().inner_text())
+    check("a full month ahead does not nag", "go today" not in grow2().inner_text(), grow2().inner_text())
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("September's sessions and bonus are untouched by the rollover",
+          len([e for e in d["log"] if e["type"] == "bonus"]) == 1
+          and sum(e["xp"] for e in d["log"]) == 210)
+    # the month review watches a monthly habit still short of its count
+    goto(page, "progress"); page.wait_for_timeout(60)
+    page.locator("button[data-act=prog][data-id=month]").click(); page.wait_for_timeout(60)
+    watchm = page.locator(".pitem.watch").all_inner_texts()
+    check("month review names the monthly habits still short",
+          any("Deep clean" in w and "0 of 3" in w for w in watchm), watchm)
+    check("no JS errors in the monthly flow", not moerr, moerr)
+    ctx.close()
+
+    # ---------- 3u. habits linked to an objective ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    lerr = []
+    page.on("pageerror", lambda e: lerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    demo_boot(page)
+    goto(page, "sections"); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    check("the habit form offers every objective with None as the default",
+          page.locator("#f-h-obj").count() == 1
+          and page.evaluate("document.getElementById('f-h-obj').value") == ""
+          and page.evaluate("() => [...document.getElementById('f-h-obj').options].map(o => o.textContent)")
+          == ["None", "Bench press bodyweight", "Run 10k under 50 min", "Finish coursework draft"])
+    page.fill("#f-h-name", "Bench accessories")
+    page.fill("#f-h-xp", "25")
+    page.select_option("#f-h-obj", label="Bench press bodyweight")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("the link is stored as the objective's id",
+          [h for h in d["habits"] if h["name"] == "Bench accessories"][0]["objectiveId"] == "g1")
+    check("the habit's row names the objective it works toward",
+          "\u2192 Bench press bodyweight" in page.locator(".secbox .row", has_text="Bench accessories").inner_text(),
+          page.locator(".secbox .row", has_text="Bench accessories").inner_text())
+    ob = page.locator(".oblink")
+    check("the objective groups its linked habit under its row",
+          ob.count() == 1 and "Bench accessories" in ob.inner_text()
+          and "Bench press" in page.evaluate("document.querySelector('.oblink').previousElementSibling.textContent"))
+    # a habit from another section can link too: grouping is by objective, not section
+    page.locator(".secbox", has_text="School").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    page.fill("#f-h-name", "Morning pages")
+    page.fill("#f-h-xp", "10")
+    page.select_option("#f-h-obj", label="Bench press bodyweight")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    check("two habits grouped under the same objective, across sections",
+          page.locator(".oblink .oblink-row").count() == 2)
+    # detaching from the edit form clears the link and the grouping
+    page.locator(".secbox .row", has_text="Morning pages").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(50)
+    check("edit form preselects the linked objective",
+          page.evaluate("document.getElementById('f-h-obj').value") == "g1")
+    page.select_option("#f-h-obj", label="None")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("detaching sets the link back to none",
+          [h for h in d["habits"] if h["name"] == "Morning pages"][0]["objectiveId"] is None
+          and page.locator(".oblink .oblink-row").count() == 1)
+    # deleting the objective keeps the habit; only the link clears
+    page.locator(".secbox .row", has_text="Bench press").locator("button[data-act=del-goal]").click(); page.wait_for_timeout(80)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("deleting an objective keeps its linked habits, links cleared",
+          [h for h in d["habits"] if h["name"] == "Bench accessories"][0]["objectiveId"] is None
+          and not [g for g in d["goals"] if g["id"] == "g1"]
+          and page.locator(".secbox .row", has_text="Bench accessories").count() == 1)
+    # normalise repairs a dangling or missing link to none
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.habits[0].objectiveId = 'nope';
+        delete s.habits[1].objectiveId;
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    reload_app(page)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("normalise repairs dangling and missing links to none",
+          d["habits"][0]["objectiveId"] is None and d["habits"][1]["objectiveId"] is None)
+    check("no JS errors in the objective-link flow", not lerr, lerr)
+    ctx.close()
+
+    # ---------- 3v. draft persistence + last open screen ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    verr = []
+    page.on("pageerror", lambda e: verr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    demo_boot(page)
+
+    # iOS discarding a backgrounded PWA = a fresh load; pagehide flushed the draft
+    goto(page, "sections"); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    page.fill("#f-h-name", "Half-typed habit")
+    page.fill("#f-h-xp", "77")
+    page.select_option("#f-h-mode", "weekly")
+    page.fill("#f-h-per", "4")
+    before = page.evaluate("localStorage.getItem('level.v2')")
+    reload_app(page)
+    check("the app reopens on the same sub-screen with Home lit",
+          page.locator(".secbox").count() == 3
+          and page.evaluate("document.querySelector('.tabs [data-id=home]').getAttribute('aria-current')") == "true")
+    check("the half-typed form is open again with every keystroke intact",
+          page.locator("#f-h-name").count() == 1
+          and page.input_value("#f-h-name") == "Half-typed habit"
+          and page.input_value("#f-h-xp") == "77"
+          and page.evaluate("document.getElementById('f-h-mode').value") == "weekly")
+    check("the weekly block follows the restored mode, its count intact",
+          "hidden" not in page.locator("#f-h-weekly").get_attribute("class")
+          and page.input_value("#f-h-per") == "4")
+    check("restoring commits nothing and corrupts nothing",
+          json.loads(page.evaluate("localStorage.getItem('level.v2')")) == json.loads(before))
+    # Cancel is deliberate: the draft dies with it, the screen stays
+    page.locator("button[data-act=cancel]").click(); page.wait_for_timeout(50)
+    reload_app(page)
+    check("after Cancel the form is gone for good, the screen still restores",
+          page.locator(".secbox").count() == 3 and page.locator("#f-h-name").count() == 0)
+    # Save is deliberate too: the item commits once and the draft dies with it
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    page.fill("#f-h-name", "Real habit")
+    page.fill("#f-h-xp", "20")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    reload_app(page)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("a saved habit commits exactly once and its form draft is cleared",
+          len([h for h in d["habits"] if h["name"] == "Real habit"]) == 1
+          and page.locator("#f-h-name").count() == 0)
+
+    # the Tasks quick-add keeps its unsent words too
+    goto(page, "tasks"); page.wait_for_timeout(50)
+    page.fill("#f-t-name", "Draft goal, never sent")
+    page.fill("#f-t-xp", "55")
+    reload_app(page)
+    check("tasks sub-screen restores with the unsent goal still typed",
+          page.locator("#f-t-name").count() == 1
+          and page.input_value("#f-t-name") == "Draft goal, never sent"
+          and page.input_value("#f-t-xp") == "55")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("the unsent goal was never committed", d["tasks"] == [])
+
+    # a bottom tab restores as itself; deliberate Home is remembered as Home
+    goto(page, "calendar"); page.wait_for_selector(".cal")
+    reload_app(page)
+    check("calendar restores with its own tab lit",
+          page.locator(".cal").count() == 1
+          and page.evaluate("document.querySelector('.tabs [data-id=calendar]').getAttribute('aria-current')") == "true")
+    goto(page, "home")
+    reload_app(page)
+    check("after deliberately going Home, the app reopens on Home",
+          page.locator(".hero").count() == 1 and page.locator(".quicknav").count() == 1)
+
+    # a draft for a form that no longer exists restores nothing, breaks nothing
+    # (capture is disarmed first - the patch also cancels any pending debounce
+    # timer, which holds a reference to the original captureUI - or the app's
+    # own flush would overwrite the plant before the reload reads it)
+    page.evaluate("""() => { clearTimeout(uiCapT); captureUI = () => {}; flushCapture = () => {}; scheduleCapture = () => {};
+        localStorage.setItem('level.ui', JSON.stringify({v:1, tab:'sections',
+          editing:{type:'habit', id:'gone-forever'}, fields:{'f-h-name':'ghost'}, scroll:0})); }""")
+    page.reload()
+    page.wait_for_function("document.querySelector('#view') && document.querySelector('#view').childElementCount > 0")
+    page.wait_for_timeout(60)
+    check("a dangling draft opens the screen but never a ghost form",
+          page.locator(".secbox").count() == 3 and page.locator("#f-h-name").count() == 0)
+    # garbage in the draft key must not touch the boot or the data
+    page.evaluate("""() => { clearTimeout(uiCapT); captureUI = () => {}; flushCapture = () => {}; scheduleCapture = () => {};
+        localStorage.setItem('level.ui', '{oops'); }""")
+    page.reload(); page.wait_for_selector(".hero")
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("garbage in level.ui boots clean on Home with the data intact",
+          page.locator(".hero").count() == 1 and len(d["habits"]) == 6)
+    check("no JS errors in the draft flow", not verr, verr)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------

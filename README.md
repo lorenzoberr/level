@@ -58,6 +58,15 @@ long it has been, with a button to export there and then. It goes away as soon
 as you export and comes back a fortnight later. Settings > Your data always
 shows the date of the last one.
 
+## Picking up where you left off
+
+Switch to another app mid-thought and iOS may quietly kill Level in the
+background. It no longer matters: the app continuously remembers exactly
+what was on screen — which page, which form was open, and every unsaved
+keystroke — and reopens precisely there, half-typed habit and all. Nothing
+is saved for real until you tap Save; Cancel throws the draft away. You get
+the bare Home page only when Home is where you actually were.
+
 ## Reminders
 
 The app cannot send notifications on its own. iPhone web apps only receive
@@ -113,7 +122,7 @@ screens: Tasks, Sections, Progress and Weight. Each opens full-screen with a
   day? Fix it from that day in the calendar.
 - Sections group habits and objectives and give them a colour.
 - Habits are "once a day" (tap to log, tap again to undo), "repeatable"
-  (each tap adds XP), or "times a week".
+  (each tap adds XP), "times a week", or "times a month".
 - **Times a week** is for things you do a few times a week rather than daily,
   like the gym. Set the count (say 3) and a bonus. Each session pays its own XP
   and fills one dot; the row counts down — "1 of 3 this week · 2 to go". Finish
@@ -124,6 +133,16 @@ screens: Tasks, Sections, Progress and Weight. Each opens full-screen with a
   also when it starts counting towards the number on the app icon. Come Monday
   the count starts again at zero and last week's XP stays where it is.
   Raising the count later never takes back a bonus an earlier week earned.
+- **Times a month** works the same way over the calendar month, for things a
+  week is too small for — a deep clean, a call home, a long run. Set the
+  count and a bonus; each session pays its XP and the bonus lands once when
+  the month's count is hit. When the sessions still owed equal the days left
+  in the month, the row turns amber and says "go today". On the 1st the
+  count starts again and last month's XP and bonus stay where they are.
+- A habit can name the objective it works toward — pick one under "Works
+  toward" in the habit form. It is just a grouping: the objective's row in
+  Sections lists its habits beneath it, nothing is calculated for you, and
+  deleting the objective simply unlinks them.
 - Objectives are one-off. Tick when done; tick again to reopen. Each can
   carry an optional deadline: finish by it for the full XP, after it for
   half. The row says which applies before you tick.
