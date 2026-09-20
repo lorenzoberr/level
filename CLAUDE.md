@@ -65,6 +65,12 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     habits under the objective's row (`linkedHabitsHTML`), the habit form
     has a "Works toward" select, deleting an objective just clears the
     links back to null, and `normalise()` repairs a dangling link to null.
+    `duration` (habits AND tasks, default null): optional intended minutes
+    per session, 1-1440 - PURELY informational. A small "N min" label on
+    the row when set, nothing when null; no timer, no tracking, never read
+    by XP, completion, bonuses, suggestions or anything else. Blank input
+    means none and is never coerced to zero (zero is refused); normalise
+    REJECTS (not clamps) anything outside 1-1440 back to null.
   - `goals`: one-off objectives; `done` + `doneDate`, plus an optional
     `deadline`. Completing by the deadline pays full XP; after it, half
     (`goalAward()`), snapshotted into the single log entry. Editing a
@@ -114,6 +120,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
     removes its entry like a reopened objective. Money in/out via `moneyIn()`
     (comma or dot decimal) and `gbp()` (£1,234; decimals only when present).
   - `tasks`: daily goals tied to a `date`; overdue ones surface on Home.
+    They carry the same optional informational `duration` as habits.
   - `log`: XP entries `{type: habit|goal|task|bonus|penalty|finance, refId, name, xp, date, at}`. Total XP
     is always the sum of `log`. `done` flags are re-derived from the log in `normalise()`.
   - `bonus` entries are the weekly or monthly completion bonus: one per habit
@@ -218,7 +225,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 395 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 414 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.

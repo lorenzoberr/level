@@ -143,6 +143,10 @@ screens: Tasks, Sections, Progress and Weight. Each opens full-screen with a
   toward" in the habit form. It is just a grouping: the objective's row in
   Sections lists its habits beneath it, nothing is calculated for you, and
   deleting the objective simply unlinks them.
+- Habits and daily goals can carry an optional duration — how long you mean
+  to spend, in minutes ("20 min" on the row). It is a note to yourself,
+  nothing more: no timer, no effect on XP or bonuses. Leave the field blank
+  for no duration.
 - Objectives are one-off. Tick when done; tick again to reopen. Each can
   carry an optional deadline: finish by it for the full XP, after it for
   half. The row says which applies before you tick.

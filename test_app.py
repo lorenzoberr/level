@@ -1298,7 +1298,7 @@ with sync_playwright() as p:
     hj = [h for h in d["habits"] if h["name"] == "Dialled habit"][0]
     check("typed XP wins and no dial fields are stored",
           hj["xp"] == 33 and sorted(hj.keys())
-          == ["bonus", "cat", "id", "mode", "name", "objectiveId", "perMonth", "perWeek", "xp"], hj)
+          == ["bonus", "cat", "duration", "id", "mode", "name", "objectiveId", "perMonth", "perWeek", "xp"], hj)
     check("importance/effort appear nowhere in storage",
           "importance" not in page.evaluate("localStorage.getItem('level.v2')")
           and "effort" not in page.evaluate("localStorage.getItem('level.v2')"))
@@ -1867,6 +1867,122 @@ with sync_playwright() as p:
     check("garbage in level.ui boots clean on Home with the data intact",
           page.locator(".hero").count() == 1 and len(d["habits"]) == 6)
     check("no JS errors in the draft flow", not verr, verr)
+    ctx.close()
+
+
+    # ---------- 3w. optional duration label on habits and daily tasks ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    duerr = []
+    page.on("pageerror", lambda e: duerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 20, 10, 0, 0, tzinfo=ROME))
+    page.on("dialog", lambda dlg: dlg.accept())
+    demo_boot(page)
+    # a pre-change install: every habit repairs to duration none, nothing else moves
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("pre-change habits repair to duration none, otherwise unchanged",
+          all(h["duration"] is None for h in d["habits"]) and len(d["habits"]) == 5
+          and d["log"] == [] and d["tasks"] == [], d["habits"])
+    check("existing rows show no duration label", "min" not in page.locator(".row[data-act=log]", has_text="8k steps").inner_text())
+
+    # habit form: the optional minutes field, stored as a number of minutes
+    goto(page, "sections"); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Personal").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    check("habit form carries the optional minutes field, empty by default",
+          page.locator("#f-h-dur").count() == 1 and page.input_value("#f-h-dur") == ""
+          and "Minutes per session (optional)" in page.inner_text("#view"))
+    page.fill("#f-h-name", "Evening reading")
+    page.fill("#f-h-xp", "10")
+    page.fill("#f-h-dur", "20")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("duration stored as minutes",
+          [h for h in d["habits"] if h["name"] == "Evening reading"][0]["duration"] == 20)
+    check("sections row shows the small label",
+          "20 min" in page.locator(".secbox .row", has_text="Evening reading").inner_text(),
+          page.locator(".secbox .row", has_text="Evening reading").inner_text())
+    goto(page, "home")
+    check("home row shows the label after the schedule text",
+          "Once a day \u00b7 20 min" in page.locator(".row[data-act=log]", has_text="Evening reading").inner_text(),
+          page.locator(".row[data-act=log]", has_text="Evening reading").inner_text())
+    check("a habit without a duration still shows none",
+          "min" not in page.locator(".row[data-act=log]", has_text="Read 20 minutes").locator(".sub").inner_text())
+
+    # zero is refused outright - blank is the only way to mean none
+    goto(page, "sections"); page.wait_for_selector(".secbox")
+    page.locator(".secbox .row", has_text="Evening reading").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(50)
+    check("edit form prefills the stored minutes", page.input_value("#f-h-dur") == "20")
+    page.fill("#f-h-dur", "0")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("zero minutes is refused, the stored value untouched",
+          page.locator("#f-h-dur").count() == 1
+          and [h for h in d["habits"] if h["name"] == "Evening reading"][0]["duration"] == 20)
+    page.fill("#f-h-dur", "")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    hr = [h for h in d["habits"] if h["name"] == "Evening reading"][0]
+    check("clearing the field returns the duration to none - not zero",
+          hr["duration"] is None and hr["xp"] == 10)
+    check("the label disappears with it",
+          "min" not in page.locator(".secbox .row", has_text="Evening reading").locator(".sub").inner_text())
+
+    # daily tasks: same field in the quick-add, same rules
+    goto(page, "tasks"); page.wait_for_timeout(50)
+    check("task quick-add carries the optional minutes box", page.locator("#f-t-dur").count() == 1
+          and page.input_value("#f-t-dur") == "")
+    page.fill("#f-t-name", "Essay block")
+    page.fill("#f-t-xp", "30")
+    page.fill("#f-t-dur", "45")
+    page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("task duration stored as minutes",
+          [t for t in d["tasks"] if t["name"] == "Essay block"][0]["duration"] == 45)
+    check("task row shows the small label",
+          "45 min" in page.locator(".row.task", has_text="Essay block").inner_text(),
+          page.locator(".row.task", has_text="Essay block").inner_text())
+    page.fill("#f-t-name", "Quick errand")
+    page.fill("#f-t-xp", "5")
+    page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("a task added with the field blank stays none",
+          [t for t in d["tasks"] if t["name"] == "Quick errand"][0]["duration"] is None
+          and "min" not in page.locator(".row.task", has_text="Quick errand").locator(".sub").inner_text())
+
+    # purely informational: XP, completion and bonuses are indifferent to it
+    goto(page, "sections"); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    page.fill("#f-h-name", "Timed gym")
+    page.fill("#f-h-xp", "50")
+    page.select_option("#f-h-mode", "weekly")
+    page.fill("#f-h-per", "2")
+    page.fill("#f-h-bonus", "60")
+    page.fill("#f-h-dur", "90")
+    page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(60)
+    goto(page, "home")
+    page.locator(".row[data-act=log]", has_text="Timed gym").click(); page.wait_for_timeout(50)
+    page.locator(".row[data-act=log]", has_text="Timed gym").click(); page.wait_for_timeout(60)
+    page.locator(".row.task[data-act=task]", has_text="Essay block").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("XP, completion and the weekly bonus are exactly as without a duration",
+          sum(e["xp"] for e in d["log"]) == 50 + 50 + 60 + 30
+          and len([e for e in d["log"] if e["type"] == "bonus"]) == 1
+          and [t for t in d["tasks"] if t["name"] == "Essay block"][0]["done"] is True,
+          d["log"])
+    check("log entries never carry a duration",
+          all("duration" not in e for e in d["log"]))
+
+    # normalise repairs junk durations from a hand-edited backup to none
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.habits[0].duration = 'abc'; s.habits[1].duration = -5; s.habits[2].duration = 0;
+        s.tasks[0].duration = 99999;
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    reload_app(page)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("junk, negative, zero and absurd durations all repair to none",
+          d["habits"][0]["duration"] is None and d["habits"][1]["duration"] is None
+          and d["habits"][2]["duration"] is None and d["tasks"][0]["duration"] is None)
+    check("no JS errors in the duration flow", not duerr, duerr)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------
