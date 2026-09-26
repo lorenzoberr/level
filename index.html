@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#F3F5F9" id="tc">
+<meta name="theme-color" content="#F4F6FA" id="tc">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Level">
@@ -26,399 +26,464 @@
      dark block below only has to restate values, never rules. */
   :root{
     color-scheme:light;
-    --bg:#F3F5F9;
+    --bg:#F4F6FA;
     --card:#FFFFFF;
-    --ink:#0F172A;
-    --ink-soft:#334155;
-    --muted:#64748B;
-    --line:#E2E8F0;
-    --line-2:#CBD5E1;
-    --hero-a:#1E40AF;
-    --hero-b:#3B82F6;
-    --accent:#1E40AF;        /* blue as text on the page background */
-    --gold:#FBBF24;
-    --gold-deep:#B45309;
-    --green:#15803D;
-    --red:#DC2626;
-    --surface-2:#F8FAFC;     /* pressed rows, completed rows */
-    --seg-bg:#E2E8F0;
+    --surface-2:#EDF1F7;     /* card headers, tracks, pressed rows */
+    --ink:#182135;
+    --ink-soft:#3A455C;
+    --muted:#626D81;
+    --line:#DFE5EF;
+    --line-2:#CCD4E1;
+    --accent:#485DE5;
+    --on-accent:#FFFFFF;
+    --tint-bg:#E9EDFF;       /* accent chips and notes */
+    --tint-ink:#3A4FD6;
+    --hero:#1A2341;
+    --hero-ink:#FFFFFF;
+    --hero-muted:#C0C9E6;
+    --hero-line:#45506F;
+    --lime:#D5F78B;
+    --on-lime:#182135;       /* always dark: lime stays light in both themes */
+    --gold:#D99A06;          /* today's bar in the Progress chart */
+    --green:#257359;
+    --green-bg:#E8F6EE;
+    --warn-ink:#976000;
+    --warn-bg:#FFF3D7;
+    --red:#B63B47;
+    --danger-bg:#FFEBED;
     --input-bg:#FFFFFF;
-    --btn-bg:#0F172A;
-    --btn-fg:#FFFFFF;
-    --tint-bg:#EFF6FF;       /* blue notes and chips */
-    --tint-bg-2:#DBEAFE;
-    --tint-ink:#1E40AF;
-    --warn-bg:#FFF7ED;       /* the reminder / backup strip */
-    --warn-ink:#9A3412;
-    --note-warn-bg:#FFFBEB;
-    --note-warn-ink:#92400E;
-    --danger-line:#FECACA;
-    --toast-bg:#0F172A;
+    --toast-bg:#182135;
     --toast-fg:#FFFFFF;
-    --on-gold:#0F172A;       /* always dark: gold stays light in both themes */
+    --tabs-bg:#FFFFFF;
     --ring:#FFFFFF;          /* the gap inside the selected-day ring */
-    --tabs-bg:rgba(243,245,249,.92);
-    --day-0:#E8ECF3;
-    --day-1:#BFDBFE;
-    --day-2:#60A5FA;
-    --day-3:#2563EB;
+    --scrim:rgba(13,23,56,.42);
+    --shadow:0 12px 40px rgba(32,44,75,.05);
+    --day-0:#EDF1F7;
+    --day-1:#DCE2FF;
+    --day-2:#A9B4F7;
+    --day-3:#485DE5;
     --day-hi-ink:#FFFFFF;
-    --day-future-bg:#F1F4F8;
-    --day-future-ink:#B0BAC8;
-    --fin-good:#15803D;      /* budget met */
-    --fin-bad:#DC2626;       /* budget blown */
-    --r:16px;
-    --pad:18px;
+    --day-future-bg:#F4F6FA;
+    --day-future-ink:#A9B2C3;
+    --fin-good:#257359;      /* budget met */
+    --fin-bad:#B63B47;       /* budget blown */
+    --r:20px;
   }
   :root[data-theme="dark"]{
     color-scheme:dark;
-    --bg:#0B1220;
-    --card:#151E2E;
-    --ink:#E8EDF6;
-    --ink-soft:#B8C4D6;
-    --muted:#8494AC;
-    --line:#243149;
-    --line-2:#33415C;
-    --hero-a:#1E3A8A;
-    --hero-b:#3B82F6;
-    --accent:#8AB0FF;
+    --bg:#111521;
+    --card:#1B2131;
+    --surface-2:#242D41;
+    --ink:#EDF1FA;
+    --ink-soft:#C9D1E3;
+    --muted:#A7B1C7;
+    --line:#323C52;
+    --line-2:#414C66;
+    --accent:#A4AFFF;
+    --on-accent:#161D34;
+    --tint-bg:#2E3657;
+    --tint-ink:#B7C0FF;
+    --hero:#232D4B;
+    --hero-ink:#FFFFFF;
+    --hero-muted:#C0C9E6;
+    --hero-line:#566182;
+    --lime:#D5F78B;
+    --on-lime:#182135;
     --gold:#FBBF24;
-    --gold-deep:#FCD34D;
-    --green:#4ADE80;
-    --red:#F87171;
-    --surface-2:#1C2637;
-    --seg-bg:#1C2637;
-    --input-bg:#111A29;
-    --btn-bg:#2E3D57;
-    --btn-fg:#E8EDF6;
-    --tint-bg:#16233C;
-    --tint-bg-2:#1E2F4D;
-    --tint-ink:#9EC0FF;
-    --warn-bg:#2A1E12;
-    --warn-ink:#F5B784;
-    --note-warn-bg:#2A2113;
-    --note-warn-ink:#F0C475;
-    --danger-line:#7F1D1D;
-    --toast-bg:#E8EDF6;
-    --toast-fg:#0B1220;
-    --ring:#0B1220;
-    --tabs-bg:rgba(11,18,32,.92);
-    --day-0:#1B2534;
-    --day-1:#1E3A6B;
-    --day-2:#2C5FC0;
-    --day-3:#4B87F5;
-    --day-future-bg:#141C2A;
-    --day-future-ink:#54627A;
-    --fin-good:#4ADE80;
-    --fin-bad:#F87171;
+    --green:#94DDBA;
+    --green-bg:#243E36;
+    --warn-ink:#EFCA79;
+    --warn-bg:#443B28;
+    --red:#FFA5B0;
+    --danger-bg:#492B38;
+    --input-bg:#161B29;
+    --toast-bg:#EDF1FA;
+    --toast-fg:#111521;
+    --tabs-bg:#1B2131;
+    --ring:#111521;
+    --scrim:rgba(0,0,0,.55);
+    --shadow:0 12px 40px rgba(0,0,0,.10);
+    --day-0:#242D41;
+    --day-1:#2A3560;
+    --day-2:#3B4899;
+    --day-3:#8A96F4;
+    --day-hi-ink:#111521;
+    --day-future-bg:#161B29;
+    --day-future-ink:#566079;
+    --fin-good:#94DDBA;
+    --fin-bad:#FFA5B0;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    font-size:16px;line-height:1.45;
-    -webkit-font-smoothing:antialiased;
-    overscroll-behavior-y:contain;
-  }
+  body{background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overscroll-behavior-y:contain}
+  body.sheet-open{overflow:hidden}
   .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
   button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+  button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
   input,select{font:inherit;color:inherit}
   svg{display:block}
+  .ic{width:22px;height:22px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.7;
+    stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 
-  .app{max-width:480px;margin:0 auto;padding:0 var(--pad);
-    padding-top:calc(env(safe-area-inset-top) + 12px);
-    padding-bottom:calc(env(safe-area-inset-bottom) + 96px)}
+  .app{max-width:480px;margin:0 auto;padding:0 20px;
+    padding-top:calc(env(safe-area-inset-top) + 20px);
+    padding-bottom:calc(env(safe-area-inset-bottom) + 110px)}
 
-  .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
-  .top h1{font-size:18px;font-weight:700;letter-spacing:-0.01em;margin:0}
-  .top .date{font-size:13px;color:var(--muted)}
-
-  /* ---------- hero ---------- */
-  .hero{background:linear-gradient(145deg,var(--hero-a),var(--hero-b));color:#fff;
-    border-radius:22px;padding:20px 20px 18px;margin-bottom:22px;
-    box-shadow:0 10px 28px -12px rgba(30,64,175,.55)}
-  .hero-row{display:flex;align-items:center;gap:14px}
-  .hero-text{flex:1;min-width:0}
-  .hero .hname{font-size:13.5px;font-weight:700;opacity:.95;letter-spacing:.01em}
-  .hero .lvl{font-size:14px;font-weight:600;opacity:.92}
-  .hero .lvl span{opacity:.75;font-weight:500}
-  .hero .goal80{font-size:10.5px;font-weight:600;opacity:.65;margin-left:8px;
-    border:1px solid rgba(255,255,255,.5);border-radius:99px;padding:1.5px 8px;vertical-align:1.5px}
-  .hero .goal80.met{opacity:1;border-color:var(--gold);color:var(--gold)}
-  .hero .total{font-size:54px;line-height:1;font-weight:800;letter-spacing:-0.045em;margin:6px 0 2px}
-  .hero .totlab{font-size:13px;opacity:.75}
-  .hero .streak{font-size:12.5px;margin-top:6px;opacity:.9}
-  .char{flex:0 0 104px;width:104px;height:104px}
+  /* ---------- brand bar + page heads ---------- */
+  .brandbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}
+  .brand{display:flex;gap:10px;align-items:center;font-size:1.4rem;font-weight:800;letter-spacing:-.06em}
+  .mark{background:var(--accent);color:var(--on-accent);width:32px;height:32px;display:grid;place-items:center;border-radius:10px}
+  .mark .ic{width:23px;height:23px}
+  .local-pill{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .local-pill .ic{width:16px;height:16px}
+  .pagehead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px}
+  .pagehead>div:first-child{min-width:0}
+  .pagehead h1,.subhead h1{font-size:1.9rem;line-height:1.15;letter-spacing:-.055em;font-weight:750;margin:0;overflow-wrap:anywhere}
+  .pagehead .meta,.subhead .meta{margin-top:6px}
+  .eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .meta{font-size:.875rem;color:var(--muted)}
+  .subhead{margin:0 0 20px}
+  .subhead .backbtn{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.875rem;min-height:40px;margin:-10px 0 4px}
+  .subhead .backbtn .ic{width:17px;height:17px}
+  .char{flex:0 0 58px;width:58px;height:58px}
   .char.pop{animation:pop .5s cubic-bezier(.3,1.5,.5,1)}
   .char.bump{animation:bump .32s ease-out}
   @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.2) rotate(-5deg)}100%{transform:scale(1)}}
   @keyframes bump{0%{transform:translateY(0)}40%{transform:translateY(-8px)}100%{transform:translateY(0)}}
 
-  .bar{position:relative;height:10px;background:rgba(255,255,255,.22);border-radius:99px;overflow:hidden}
-  .bar > i{position:absolute;top:0;bottom:0;left:0;background:var(--gold);border-radius:99px;
+  /* ---------- home shortcuts ---------- */
+  .quicknav{display:flex;gap:7px;margin:0 0 22px}
+  .quicknav button{flex:1;min-width:0;min-height:62px;display:flex;align-items:center;justify-content:center;gap:6px;
+    background:var(--card);border:1px solid var(--line);border-radius:13px;font-size:.8rem;color:var(--ink)}
+  .quicknav button .ic{width:21px;height:21px}
+  .quicknav button:active{border-color:var(--accent);color:var(--accent)}
+  @media (max-width:359px){.quicknav button{flex-direction:column;gap:3px;font-size:.75rem}}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;background:var(--hero);color:var(--hero-ink);border-radius:var(--r);
+    padding:23px 22px 20px;margin-bottom:22px;overflow:hidden}
+  .hero .eyebrow{color:var(--hero-muted);padding-right:96px;margin-bottom:4px}
+  .hero .lvl{font-size:2.8rem;line-height:1.1;font-weight:750;letter-spacing:-.06em;padding-right:96px}
+  .hero .totline{font-size:.875rem;font-weight:600;color:var(--hero-muted);margin-top:5px;padding-right:96px}
+  .hero .total{color:var(--hero-muted)}
+  .goal80{position:absolute;right:22px;top:23px;border:1px solid var(--hero-line);border-radius:15px;
+    padding:12px 10px 11px;min-width:78px;text-align:center}
+  .goal80 .ic{color:var(--lime);width:23px;height:23px;margin:0 auto}
+  .goal80 strong{display:block;font-size:1.75rem;line-height:1.2;font-weight:750}
+  .goal80 small{display:block;color:var(--hero-muted);font-size:.66rem;letter-spacing:.04em;text-transform:uppercase}
+  .goal80.met{border-color:var(--lime)}
+  .barmeta{display:flex;justify-content:space-between;gap:12px;margin:19px 0 9px;font-size:.8rem}
+  .hero .bar{position:relative;height:8px;background:var(--hero-line);border-radius:9px;overflow:hidden}
+  .hero .bar>i{position:absolute;top:0;bottom:0;left:0;background:var(--lime);border-radius:9px;
     transition:width .45s cubic-bezier(.2,.8,.3,1)}
-  .barmeta{display:flex;justify-content:space-between;font-size:12.5px;opacity:.85;margin-top:7px}
-  .hero-bars{margin-top:16px}
+  .hero .bar.thin{height:3px;margin-top:22px;overflow:visible;border-radius:0}
+  .hero .bar.thin>i{border-radius:0}
+  .gmark{position:absolute;top:-4px;width:3px;height:11px;margin-left:-1.5px;background:var(--lime);border-radius:1px}
+  .scale{display:flex;justify-content:space-between;font-size:.75rem;color:var(--hero-muted);margin-top:7px}
+  .yearbox{margin-top:16px;padding-top:14px;border-top:1px solid var(--hero-line)}
+  .yearhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:.85rem}
+  .yearhead b{font-weight:650}
+  .pace{font-size:.8rem;color:var(--hero-muted);margin-top:4px}
 
-  .yearbox{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.25)}
-  .yearhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:13px}
-  .yearhead b{font-weight:600}
-  .bar.thin{height:6px}
-  .bar.thin > i{background:#fff}
-  .pace{font-size:12.5px;margin-top:8px;opacity:.9}
-
-  /* ---------- sections ---------- */
-  h2{font-size:15px;font-weight:700;margin:22px 0 10px;letter-spacing:-0.005em;display:flex;align-items:center;gap:8px}
+  /* ---------- blocks, lists and rows ---------- */
+  h2{font-size:1.15rem;font-weight:700;letter-spacing:-.025em;margin:0;display:flex;align-items:center;gap:8px}
   h2 .dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
-  h2 .count{font-weight:500;color:var(--muted);font-size:13px;margin-left:auto}
-  h3{font-size:12.5px;font-weight:600;color:var(--muted);margin:12px 0 6px}
-
-  .row{display:flex;align-items:center;gap:12px;padding:12px 13px 12px 0;background:var(--card);
-    border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px;overflow:hidden;
-    transition:background .15s,border-color .15s;min-height:56px}
+  h3{font-size:.875rem;font-weight:700;color:var(--muted);margin:18px 2px 8px}
+  .goals-head,.blockhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:28px 0 12px}
+  .goals-head h2,.blockhead h2{font-size:1.1rem;white-space:nowrap;min-width:0}
+  .goals-head>div{display:flex;gap:6px;flex-shrink:0}
+  .goals-head button,.blockhead button{font-size:.8rem;font-weight:600;color:var(--accent);padding:6px 10px;
+    border-radius:9px;background:var(--tint-bg);min-height:34px;white-space:nowrap}
+  .goals-head .mini{margin:0;color:var(--ink);background:var(--card);border:1px solid var(--line)}
+  .count{font-size:.8rem;font-weight:500;color:var(--muted);background:var(--surface-2);padding:3px 9px;
+    border-radius:7px;letter-spacing:0;white-space:nowrap}
+  .blockhead .meta,.streak{font-size:.875rem;color:var(--muted)}
+  .pendline{display:flex;justify-content:space-between;align-items:baseline;font-size:.875rem;color:var(--muted);margin:-8px 2px 0}
+  .list{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+    overflow:hidden;margin-bottom:12px}
+  .list>*+*{border-top:1px solid var(--line)}
+  .grouph{padding:13px 16px 9px;font-size:.75rem;font-weight:700;color:var(--muted);letter-spacing:.055em;gap:7px}
+  .grouph .gname{text-transform:uppercase;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .grouph .dot{width:8px;height:8px;flex:0 0 8px}
+  .grouph .count{background:none;padding:0;font-weight:600;letter-spacing:0}
+  .row{display:flex;align-items:center;gap:13px;padding:15px 16px;min-height:64px;background:var(--card);
+    transition:background .15s}
   .row.tap{cursor:pointer}
   .row.tap:active{background:var(--surface-2)}
-  .row .edge{width:5px;align-self:stretch;flex:0 0 5px;border-radius:0}
-  .row.done{background:var(--surface-2)}
-  .row .tick{flex:0 0 28px;height:28px;border-radius:9px;border:2px solid var(--line-2);
-    display:grid;place-items:center;transition:.15s;background:var(--input-bg)}
-  .row .tick svg{width:15px;height:15px;opacity:0;transition:opacity .15s}
-  .row.done .tick svg{opacity:1}
-  .row .plus{flex:0 0 34px;height:34px;border-radius:10px;display:grid;place-items:center;
-    font-size:20px;font-weight:600;color:#fff}
+  .row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   .row .body{flex:1;min-width:0}
-  .row .name{font-size:15.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .name{font-weight:600;font-size:.95rem;overflow-wrap:anywhere}
   .row.done .name{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
-  .row .sub{font-size:12.5px;color:var(--muted);margin-top:1px}
-  .row .xp{flex:0 0 auto;font-size:14px;font-weight:700}
-  .row.done .xp{color:var(--muted)}
-  .row .acts{display:flex;gap:2px;flex:0 0 auto}
-  .row .acts button{font-size:13px;color:var(--muted);padding:8px 8px;border-radius:8px}
-  .row .acts button:active{background:var(--bg)}
-  .row .acts button.danger{color:var(--red)}
-  .row:focus-visible{outline:2px solid var(--hero-b);outline-offset:2px}
-  /* weekly habits: one pip per required session, filled as they are logged */
-  .row .sub .pips{display:inline-flex;gap:3px;vertical-align:-1px;margin-right:6px}
-  .row .sub .pips i{width:7px;height:7px;border-radius:50%;background:var(--line-2);display:block}
-  .row .sub .due{color:var(--gold-deep);font-weight:600}
+  .row .sub{font-size:.85rem;color:var(--muted);margin-top:3px}
+  .row .sub .due{color:var(--warn-ink);font-weight:600}
   .row .sub .met{color:var(--green);font-weight:600}
+  .row .xp{flex:0 0 auto;font-size:.8rem;font-weight:700;color:var(--accent);white-space:nowrap}
+  .row.done .xp{color:var(--muted)}
+  .row .sub .xp{font-size:inherit}
+  .tick{flex:0 0 30px;width:30px;height:30px;border:1.5px solid var(--line-2);border-radius:10px;display:grid;
+    place-items:center;background:var(--card);color:var(--card);transition:.15s}
+  .tick svg{width:18px;height:18px;opacity:0;transition:opacity .15s}
+  .row.done .tick{background:var(--green);border-color:var(--green)}
+  .row.done .tick svg{opacity:1}
+  .plus{flex:0 0 30px;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;
+    background:var(--tint-bg);color:var(--accent);font-size:19px;font-weight:600;line-height:1}
+  .plus.met{background:var(--green);color:var(--card)}
+  .plus svg{width:17px;height:17px}
+  /* weekly/monthly habits: one pip per required session, filled as they are logged */
+  .pips{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
+  .pips i{width:16px;height:4px;border-radius:5px;background:var(--line);display:block}
+  .sdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
   /* measurable objectives: a small progress bar inline in the sub line */
-  .row .sub .gbar{display:inline-block;width:56px;height:6px;border-radius:99px;background:var(--seg-bg);
+  .row .sub .gbar{display:inline-block;width:56px;height:5px;border-radius:99px;background:var(--surface-2);
     overflow:hidden;vertical-align:1px;margin-right:7px;position:relative}
   .row .sub .gbar i{position:absolute;top:0;bottom:0;left:0;border-radius:99px;display:block}
+  .acts{display:flex;flex:0 0 auto;align-items:center}
+  .acts button{width:40px;height:40px;display:grid;place-items:center;border-radius:10px;color:var(--muted)}
+  .acts button .ic{width:19px;height:19px}
+  .acts button.danger{color:var(--red)}
+  .acts button:active{background:var(--surface-2)}
+  .task .cross{color:var(--muted);font-size:21px;line-height:1;padding:8px 2px 8px 4px}
+  .task .cross.mv{font-size:.8rem;font-weight:600;color:var(--accent);padding:6px 2px;white-space:nowrap}
 
-  .empty{padding:22px 16px;border:1px dashed var(--line-2);border-radius:var(--r);
-    text-align:center;color:var(--muted);font-size:14px;line-height:1.5;background:transparent}
-  .note{padding:12px 14px;border-radius:12px;background:var(--tint-bg);color:var(--tint-ink);font-size:13.5px;line-height:1.45}
-  .note.warn{background:var(--note-warn-bg);color:var(--note-warn-ink)}
+  .empty{padding:24px 20px;border:1px dashed var(--line-2);border-radius:var(--r);text-align:center;
+    color:var(--muted);font-size:.875rem;line-height:1.5}
+  .list>.empty,.secbox>.empty{border:0;border-radius:0;padding:15px 16px;text-align:left}
+  .list>.empty+*,.list>*+.empty{border-top:1px solid var(--line)}
+  .note{padding:14px 16px;border-radius:13px;background:var(--tint-bg);color:var(--tint-ink);font-size:.875rem;line-height:1.5}
+  .note.warn{background:var(--warn-bg);color:var(--warn-ink)}
+  .remind{display:flex;gap:10px;align-items:flex-start;padding:14px 16px;border-radius:13px;background:var(--warn-bg);
+    color:var(--warn-ink);font-size:.875rem;line-height:1.5;margin-top:14px}
+  .remind b{font-weight:700}
+  .remind.backup{border-left:3px solid var(--warn-ink)}
 
-  /* ---------- forms ---------- */
-  .form{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:8px}
-  .form h3{margin:0 0 10px;color:var(--ink);font-size:14px;font-weight:700}
-  .field{margin-bottom:10px}
-  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
-  .field input,.field select{width:100%;padding:11px 12px;border:1px solid var(--line-2);
-    border-radius:11px;background:var(--input-bg);font-size:16px;-webkit-appearance:none;appearance:none;min-height:44px}
-  .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:34px}
-  .field input:focus,.field select:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
-  .two{display:flex;gap:10px}
-  .two > *{flex:1}
-  .btn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--btn-bg);color:var(--btn-fg);
-    font-size:15px;font-weight:600;text-align:center;min-height:46px}
-  .btn.primary{background:var(--hero-b)}
-  .btn.ghost{background:var(--card);border:1px solid var(--line-2);color:var(--ink-soft)}
-  .btn.danger{background:var(--card);border:1px solid var(--danger-line);color:var(--red)}
+  /* ---------- forms: cards in place, item editors as sheets ---------- */
+  .form{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+    padding:19px;margin-bottom:16px}
+  .form h3{margin:0 0 16px;color:var(--ink);font-size:1.15rem;font-weight:700;letter-spacing:-.025em}
+  .form.sheet{position:fixed;z-index:60;left:50%;transform:translateX(-50%);
+    top:calc(env(safe-area-inset-top) + 14px);width:min(540px,calc(100% - 24px));
+    max-height:88vh;max-height:calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+    border-radius:22px;padding:23px 20px;margin:0;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .form.sheet h3{font-size:1.5rem;letter-spacing:-.04em;margin-bottom:6px}
+  .scrim{position:fixed;inset:0;z-index:55;background:var(--scrim)}
+  .fsub{font-size:.875rem;color:var(--muted);margin:0 0 18px}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:.875rem;font-weight:600;color:var(--ink);margin-bottom:6px}
+  .field input,.field select{width:100%;min-height:47px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+    background:var(--input-bg);color:var(--ink);font-size:16px;-webkit-appearance:none;appearance:none}
+  .field select,.quick select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23626D81' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 11px center;background-size:16px;padding-right:34px}
+  .field input:focus,.field select:focus,.quick input:focus,.quick select:focus,.wlog input:focus,
+  .subrow input:focus,.finrow input.finspent:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .two{display:flex;gap:12px}
+  .two>*{flex:1;min-width:0}
+  .btn{display:flex;width:100%;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 16px;
+    border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    font-size:.9rem;font-weight:600;text-align:center;text-decoration:none}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .btn.ghost{background:var(--card);border-color:var(--line);color:var(--ink)}
+  .btn.danger{background:var(--danger-bg);border-color:transparent;color:var(--red)}
   .btn:active{transform:scale(.985)}
-  .inline{display:flex;gap:8px;margin-top:8px}
-  .inline .btn{flex:1}
-
-  .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+  /* button rows read Cancel then the primary action, right-aligned */
+  .inline{display:flex;flex-direction:row-reverse;justify-content:flex-start;flex-wrap:wrap;gap:10px;margin-top:18px}
+  .inline .btn{flex:0 0 auto;width:auto}
+  .form>.btn{width:auto;margin-left:auto}
+  .form>.btn.wide{width:100%}
+  .suggestion{background:var(--surface-2);border-radius:13px;padding:14px 14px 12px;margin-bottom:15px}
+  .suggestion .field{margin-bottom:8px}
+  .snote{font-size:.8rem;color:var(--muted)}
+  .xseg{display:flex;gap:4px}
+  .xseg button{flex:1;min-height:38px;border:1px solid var(--line);border-radius:9px;background:var(--card);
+    font-size:.875rem;font-weight:600;color:var(--muted)}
+  .xseg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .swatches{display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
   .sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer}
   .sw[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--card)}
 
   /* ---------- segmented control ---------- */
-  .seg{display:flex;background:var(--seg-bg);border-radius:12px;padding:3px;margin-bottom:14px}
-  .seg button{flex:1;padding:8px 4px;font-size:13px;font-weight:600;border-radius:9px;color:var(--muted);min-height:38px}
-  .seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.12)}
+  .seg{display:flex;background:var(--surface-2);border-radius:12px;padding:4px;margin-bottom:16px}
+  .seg button{flex:1;padding:8px 4px;font-size:.875rem;font-weight:600;border-radius:9px;color:var(--muted);min-height:38px}
+  .seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.10)}
+
+  /* ---------- quick-add (tasks) ---------- */
+  .quick{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+  .quick h3{margin:0 0 12px;color:var(--ink);font-size:1.05rem;letter-spacing:-.02em}
+  .quick .line{display:flex;gap:8px;margin-bottom:10px;align-items:flex-end}
+  .quick .line:last-child{margin-bottom:0}
+  .quick input,.quick select{min-height:47px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+    background:var(--input-bg);color:var(--ink);font-size:16px;-webkit-appearance:none;appearance:none}
+  .quick input.name{flex:1;min-width:0}
+  .quick input.xp{width:76px;text-align:center}
+  .quick input[type=date]{width:100%;min-width:0}
+  .quick select{flex:1;min-width:0}
+  .quick .btn{width:auto;flex:0 0 auto;padding:10px 18px}
+  .qf{display:flex;flex-direction:column;gap:4px;font-size:.75rem;font-weight:600;color:var(--muted);flex:0 0 auto}
+  .qf.grow{flex:1;min-width:0}
+
+  /* ---------- sections ---------- */
+  .secbox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+    overflow:hidden;margin-bottom:18px}
+  .sechead{display:flex;align-items:center;gap:9px;padding:10px 8px 10px 20px;background:var(--surface-2);min-height:60px}
+  .sechead b{font-size:1.05rem;font-weight:700;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sechead .dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
+  .sechead .count{background:var(--card)}
+  .sechead .acts{margin-left:auto}
+  .secbox>h3{margin:0;padding:14px 20px 6px;font-size:.75rem;font-weight:700;color:var(--muted);letter-spacing:.055em;
+    text-transform:uppercase;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+  .sechead+h3{border-top:0}
+  .secbox>h3 .count{text-transform:none;letter-spacing:0;background:none;padding:0;font-weight:600}
+  .secbox>.row{padding:12px 8px 12px 20px;min-height:60px;border-top:1px solid var(--line)}
+  .secbox>h3+.row{border-top:0}
+  .mini{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;border:1px solid var(--line);
+    border-radius:10px;background:var(--card);font-size:.8rem;font-weight:600;color:var(--ink)}
+  .mini .ic{width:16px;height:16px}
+  .mini:active{opacity:.8}
+  .mini.dim{border:0;background:transparent;color:var(--muted);font-weight:500;padding-left:2px}
+  .secbox>.mini{margin:4px 20px 16px}
+  .secbox>.mini.dim{margin:0 20px 6px}
+  /* habits linked to an objective: a visual grouping under its row */
+  .oblink{margin:-6px 20px 10px 34px;border-left:2px solid var(--line);padding:2px 0 2px 10px}
+  .oblink-row{display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--muted);padding:3px 0}
+  .oblink-row .dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+  .oblink-row .num{margin-left:auto}
 
   /* ---------- calendar ---------- */
-  .calhead{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}
-  .calhead b{font-size:16px;font-weight:700}
-  .calhead button{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--ink-soft);background:var(--card);border:1px solid var(--line)}
-  .calhead button:active{background:var(--bg)}
-  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;font-size:11px;color:var(--muted);text-align:center;margin-bottom:5px;font-weight:600}
-  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-  .day{aspect-ratio:1;border-radius:10px;background:var(--day-0);position:relative;font-size:12.5px;font-weight:600;
-    color:var(--ink-soft);display:flex;align-items:flex-start;justify-content:flex-start;padding:5px 0 0 6px;
-    border:2px solid transparent;cursor:pointer}
+  .calcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+    padding:14px 12px;margin-bottom:14px}
+  .calhead{display:flex;align-items:center;justify-content:space-between}
+  .calhead b{font-size:1.05rem;font-weight:700}
+  .calhead button{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;color:var(--ink)}
+  .calhead button:active{background:var(--surface-2)}
+  .fin .progdate{text-align:center;margin:0}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:.75rem;color:var(--muted);text-align:center;padding:8px 0}
+  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .day{min-height:58px;min-width:0;overflow:hidden;border-radius:11px;background:var(--day-0);border:1.5px solid transparent;
+    padding:5px 6px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+    font-size:.85rem;font-weight:600;color:var(--ink-soft);cursor:pointer}
   .day.blank{background:transparent;cursor:default}
   .day[data-l="1"]{background:var(--day-1)}
-  .day[data-l="2"]{background:var(--day-2);color:var(--day-hi-ink)}
+  .day[data-l="2"]{background:var(--day-2);color:var(--ink)}
   .day[data-l="3"]{background:var(--day-3);color:var(--day-hi-ink)}
   .day.future{background:var(--day-future-bg);color:var(--day-future-ink)}
-  .day.today{border-color:var(--ink)}
-  .day.sel{box-shadow:0 0 0 2px var(--ring),0 0 0 4px var(--hero-b)}
-  .day .v{position:absolute;right:5px;bottom:4px;font-size:9.5px;font-weight:600;opacity:.85}
-  .legend{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin:10px 0 0;justify-content:flex-end}
-  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .day.today{border-color:var(--accent)}
+  .day.sel{box-shadow:0 0 0 2px var(--ring),0 0 0 4px var(--accent)}
+  .day .dn{line-height:1.1}
+  .day .v{font-size:.6rem;font-weight:600;opacity:.9;line-height:1.2;overflow-wrap:anywhere}
+  .day .v.plan{color:var(--accent);opacity:1}
+  .dots{display:flex;gap:3px}
+  .dots i,.lgd i{width:6px;height:6px;border-radius:50%;display:block}
+  .wt{background:var(--green)}
+  .pen{background:var(--red)}
+  .legend{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;font-size:.75rem;color:var(--muted);margin:14px 2px 2px}
+  .legend .lgd{display:inline-flex;align-items:center;gap:5px}
+  .legend .lgs{margin-left:auto;display:inline-flex;align-items:center;gap:4px}
+  .legend .lgs i{width:12px;height:12px;border-radius:3px;display:inline-block}
   .legend i.l0{background:var(--day-0)}
   .legend i.l1{background:var(--day-1)}
   .legend i.l2{background:var(--day-2)}
   .legend i.l3{background:var(--day-3)}
-
-  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 12px 10px}
-  .stat b{display:block;font-size:20px;font-weight:800;letter-spacing:-0.02em}
-  .stat span{font-size:11.5px;color:var(--muted)}
-
-  .entry{display:flex;align-items:center;gap:10px;padding:10px 4px 10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:14px}
+  .stat b{display:block;font-size:1.45rem;font-weight:750;letter-spacing:-.045em;line-height:1.2}
+  .stat span{font-size:.75rem;color:var(--muted)}
+  .entry{display:flex;align-items:center;gap:10px;padding:13px 12px 13px 16px;font-size:.9rem;background:var(--card)}
   .entry .edge{width:4px;height:22px;border-radius:2px;flex:0 0 4px}
   .entry .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .entry .x{font-weight:700;color:var(--gold-deep)}
-  .entry button{color:var(--muted);font-size:13px;padding:6px 8px;border-radius:8px}
+  .entry .etag{color:var(--muted);font-size:.75rem}
+  .entry .x{font-weight:700;color:var(--green)}
+  .entry .x.neg{color:var(--red)}
+  .entry button{color:var(--muted);font-size:.8rem;font-weight:600;padding:6px 8px;border-radius:8px}
 
   /* ---------- tabs ---------- */
-  .tabs{position:fixed;left:0;right:0;bottom:0;background:var(--tabs-bg);
-    backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
-    border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20}
-  .tabs > div{max-width:480px;margin:0 auto;display:flex}
-  .tabs button{flex:1;padding:10px 0 11px;font-size:11.5px;font-weight:600;color:var(--muted);
-    display:flex;flex-direction:column;align-items:center;gap:3px;min-height:56px}
-  .tabs button svg{width:22px;height:22px}
-  .tabs button[aria-current="true"]{color:var(--accent)}
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--tabs-bg);border-top:1px solid var(--line);
+    padding:8px 14px calc(10px + env(safe-area-inset-bottom))}
+  .tabs>div{max-width:480px;margin:0 auto;display:flex;gap:4px}
+  .tabs button{flex:1;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    color:var(--muted);border-radius:12px;font-size:.75rem;font-weight:600}
+  .tabs button .ic{width:21px;height:21px}
+  .tabs button[aria-current="true"]{color:var(--accent);background:var(--tint-bg)}
 
   .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(16px);
-    bottom:calc(env(safe-area-inset-bottom) + 82px);background:var(--toast-bg);color:var(--toast-fg);
-    padding:10px 16px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;
-    pointer-events:none;transition:.22s;z-index:30;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+    bottom:calc(env(safe-area-inset-bottom) + 96px);background:var(--toast-bg);color:var(--toast-fg);
+    padding:12px 20px;border-radius:13px;font-size:.875rem;font-weight:600;opacity:0;box-shadow:var(--shadow);
+    pointer-events:none;transition:.22s;z-index:80;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.gold{background:var(--gold);color:var(--on-gold)}
-
-  /* ---------- daily goals ---------- */
-  .goals-head{display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px}
-  .goals-head h2{margin:0}
-  .goals-head>div{display:flex;gap:6px}
-  .goals-head button{font-size:13.5px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg)}
-  .task .tick{border-radius:50%}
-  .task .cross{color:var(--muted);font-size:20px;line-height:1;padding:8px 12px 8px 4px}
-  .quick{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:8px}
-  .quick .line{display:flex;gap:8px;margin-bottom:8px}
-  .quick .line:last-child{margin-bottom:0}
-  .quick input,.quick select{padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--input-bg);font-size:16px;min-height:44px;-webkit-appearance:none;appearance:none}
-  .quick input.name{flex:1;min-width:0}
-  .quick input.xp{width:78px;flex:0 0 78px;text-align:center}
-  .quick select{flex:1;min-width:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:32px}
-  .quick .btn{width:auto;flex:0 0 auto;padding:10px 18px}
-  .quick input:focus,.quick select:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
-  .pendline{display:flex;justify-content:space-between;align-items:baseline;margin-top:-4px;font-size:13px;color:var(--muted)}
-  .remind{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:12px;background:var(--warn-bg);color:var(--warn-ink);font-size:13.5px;line-height:1.45;margin-top:12px}
-  .remind b{font-weight:700}
-  .remind.backup{border-left:3px solid var(--warn-ink)}
-  /* ---------- section boxes (Sections tab) ---------- */
-  .secbox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-    padding:12px 13px 13px;margin-bottom:14px}
-  .sechead{display:flex;align-items:center;gap:8px;margin-bottom:2px}
-  .sechead b{font-size:15.5px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .sechead .dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
-  .sechead .acts{display:flex;gap:2px}
-  .sechead .acts button{font-size:13px;color:var(--muted);padding:7px 8px;border-radius:8px}
-  .sechead .acts button.danger{color:var(--red)}
-  .secbox h3{margin:10px 0 2px}
-  .secbox .row{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;margin-bottom:0;min-height:52px;padding-right:0}
-  .secbox .row:last-of-type{border-bottom:0}
-  .secbox .row .edge{display:none}
-  .secbox .empty{padding:10px 4px;border:0;text-align:left;font-size:13px}
-  .secbox .form{border:0;padding:12px 0 2px;margin-bottom:0;border-top:1px solid var(--line);border-radius:0}
-  .mini{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);padding:8px 10px;border-radius:9px;background:var(--tint-bg);margin-top:8px}
-  .mini:active{opacity:.8}
-  .mini.dim{background:transparent;color:var(--muted);font-weight:500;padding-left:2px}
-  /* habits linked to an objective: a visual grouping under its row */
-  .oblink{margin:-2px 0 6px 18px;border-left:2px solid var(--line);padding:2px 0 2px 10px}
-  .oblink-row{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);padding:3px 0}
-  .oblink-row .dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
-  .oblink-row .num{margin-left:auto}
-
-  /* ---------- home quick-nav + sub-screen header ---------- */
-  .quicknav{display:flex;gap:8px;margin:-6px 0 16px}
-  .quicknav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
-    padding:10px 2px 9px;background:var(--card);border:1px solid var(--line);border-radius:14px;
-    font-size:11px;font-weight:600;color:var(--ink-soft)}
-  .quicknav button svg{width:21px;height:21px;color:var(--accent)}
-  .quicknav button:active{background:var(--surface-2)}
-  .subhead{display:flex;align-items:center;gap:12px;margin:2px 0 14px}
-  .subhead .backbtn{display:flex;align-items:center;gap:4px;font-size:13.5px;font-weight:600;
-    color:var(--accent);background:var(--tint-bg);border-radius:99px;padding:7px 12px 7px 8px}
-  .subhead b{font-size:17px;font-weight:700}
-
-  /* ---------- xp suggestion dials ---------- */
-  .xseg{display:flex;gap:4px}
-  .xseg button{flex:1;min-height:38px;border:1px solid var(--line-2);border-radius:9px;
-    background:var(--input-bg);font-size:13.5px;font-weight:600;color:var(--muted)}
-  .xseg button[aria-pressed="true"]{background:var(--hero-b);border-color:var(--hero-b);color:var(--day-hi-ink)}
+  .toast.gold{background:var(--lime);color:var(--on-lime)}
 
   /* ---------- finances ---------- */
   .fin-good{color:var(--fin-good);font-weight:600}
   .fin-bad{color:var(--fin-bad);font-weight:600}
-  .finrow input.finspent{width:88px;flex:0 0 88px;text-align:right;padding:9px 10px;
-    border:1px solid var(--line-2);border-radius:10px;background:var(--input-bg);
-    font-size:15px;min-height:40px;-webkit-appearance:none;appearance:none}
-  .finrow input.finspent:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
-  .finrow .spentro{flex:0 0 auto;font-size:14.5px;font-weight:700;padding-right:2px}
-  .finrow .acts button{padding:8px 6px}
+  .finrow input.finspent{width:92px;flex:0 0 92px;text-align:right;padding:9px 10px;border:1px solid var(--line);
+    border-radius:10px;background:var(--input-bg);color:var(--ink);font-size:15px;min-height:42px;-webkit-appearance:none;appearance:none}
+  .finrow .spentro{flex:0 0 auto;font-size:.95rem;font-weight:700;padding-right:2px}
+  .finrow .acts button{width:36px}
+  .ftrack{height:5px;border-radius:9px;background:var(--surface-2);overflow:hidden;margin-top:9px;position:relative}
+  .ftrack i{position:absolute;top:0;bottom:0;left:0;border-radius:9px;display:block}
   .finseg{display:flex;gap:8px;margin-bottom:10px}
-  .finseg button{flex:1;padding:10px 8px;border:1px solid var(--line-2);border-radius:11px;
-    font-size:13px;font-weight:600;color:var(--muted);background:var(--input-bg);text-align:left;line-height:1.35}
-  .finseg button b{display:block;color:var(--ink);font-weight:700}
+  .finseg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:11px;font-size:.8rem;font-weight:600;
+    color:var(--muted);background:var(--input-bg);text-align:left;line-height:1.35}
+  .finseg button b{display:block;color:var(--ink);font-weight:700;font-size:.875rem}
+  .finseg button[aria-pressed="true"]{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:-2px}
   .subrow{display:flex;gap:6px;margin-bottom:6px}
-  .subrow input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line-2);border-radius:10px;
-    background:var(--input-bg);font-size:15px;min-height:40px;-webkit-appearance:none;appearance:none}
-  .subrow input:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
-  .subrow button{flex:0 0 36px;border:1px solid var(--line-2);border-radius:10px;color:var(--muted);
-    font-size:17px;background:var(--input-bg)}
-  .finrow.finsub{min-height:46px;margin-left:16px;border-left:2px solid var(--line);padding-left:10px;border-radius:0}
-  .finrow.finsub .name{font-size:14px;font-weight:500}
-  .finseg button[aria-pressed="true"]{border-color:var(--hero-b);outline:2px solid var(--hero-b);outline-offset:-2px}
+  .subrow input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:10px;
+    background:var(--input-bg);color:var(--ink);font-size:15px;min-height:42px;-webkit-appearance:none;appearance:none}
+  .subrow button{flex:0 0 40px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:17px;background:var(--input-bg)}
+  .finrow.finsub{min-height:52px;padding-left:34px}
+  .finrow.finsub .name{font-size:.9rem;font-weight:500}
 
   /* ---------- progress ---------- */
-  .prognum{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1}
-  .prognum span{font-size:16px;font-weight:600;color:var(--muted);letter-spacing:0}
-  .proglab{font-size:12.5px;color:var(--muted);margin-top:4px}
-  .progdate{font-size:12.5px;color:var(--muted);margin:0 0 6px}
-  .progsay{font-size:14px;line-height:1.55;color:var(--ink-soft);margin-top:10px}
+  .prognum{font-size:2.4rem;font-weight:750;letter-spacing:-.05em;line-height:1.05}
+  .prognum span{font-size:1rem;font-weight:600;color:var(--muted);letter-spacing:0}
+  .proglab{font-size:.85rem;color:var(--muted);margin-top:6px}
+  .progdate{font-size:.85rem;color:var(--muted);margin:0 0 6px}
+  .progsay{font-size:.95rem;line-height:1.55;color:var(--ink-soft);margin-top:12px}
   .progsay b{font-weight:700}
-  .pitem{display:flex;align-items:flex-start;gap:9px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.45}
-  .pitem:last-child{border-bottom:0}
-  .pitem .pdot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--line-2)}
+  .pitem{display:flex;align-items:flex-start;gap:10px;padding:13px 16px;font-size:.9rem;line-height:1.45;background:var(--card)}
+  .pitem .pdot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;margin-top:7px;background:var(--line-2)}
   .pitem.win .pdot{background:var(--green)}
-  .pitem.watch .pdot{background:var(--gold)}
+  .pitem.watch .pdot{background:var(--warn-ink)}
   .pitem .num{font-weight:700}
 
-  /* ---------- weight ---------- */
-  .wcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:8px}
-  .wlog{display:flex;gap:8px}
-  .wlog input{flex:1;min-width:0;padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;
-    background:var(--input-bg);font-size:16px;min-height:44px;-webkit-appearance:none;appearance:none}
-  .wlog input:focus{outline:2px solid var(--hero-b);outline-offset:-1px}
+  /* ---------- weight (and the other cards that share its shape) ---------- */
+  .wcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:19px;margin-bottom:16px}
+  .wcard h3{margin:0 0 14px;color:var(--ink);font-size:1.15rem;letter-spacing:-.025em;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .wlabel{font-size:.875rem;font-weight:600;margin-bottom:6px}
+  .wlog{display:flex;gap:10px}
+  .wlog input{flex:1;min-width:0;min-height:47px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+    background:var(--input-bg);color:var(--ink);font-size:16px;-webkit-appearance:none;appearance:none}
   .wlog .btn{width:auto;flex:0 0 auto;padding:10px 16px}
-  .wmeta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin-top:10px}
-  .wmeta b{color:var(--ink-soft);font-weight:700}
+  .wmeta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.85rem;color:var(--muted);margin-top:12px}
+  .wmeta b{color:var(--ink);font-weight:700}
   .wmeta .good{color:var(--green);font-weight:600}
-  .wmeta .bad{color:var(--gold-deep);font-weight:600}
-  .wchart{margin-top:12px}
+  .wmeta .bad{color:var(--warn-ink);font-weight:600}
+  .wchart{margin-top:14px}
   .wchart svg{width:100%;height:auto;display:block}
-  .whint{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.45}
+  .whint{font-size:.85rem;color:var(--muted);margin-top:12px;line-height:1.5}
 
-  .timelist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
-  .timechip{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:99px;background:var(--tint-bg);color:var(--accent);font-weight:600;font-size:14px}
-  .timechip button{width:26px;height:26px;border-radius:50%;background:var(--tint-bg-2);color:var(--accent);font-size:15px;display:grid;place-items:center}
-  .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 10px}
-  .toggle label{font-size:14.5px;font-weight:550;flex:1}
-  .toggle input{width:22px;height:22px;accent-color:var(--hero-b);flex:0 0 22px}
-  .steps{font-size:13.5px;line-height:1.5;color:var(--ink-soft);padding-left:18px;margin:6px 0 0}
+  /* ---------- settings bits ---------- */
+  .timelist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .timechip{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:99px;background:var(--tint-bg);
+    color:var(--accent);font-weight:600;font-size:.875rem}
+  .timechip button{width:26px;height:26px;border-radius:50%;background:var(--card);color:var(--accent);font-size:15px;display:grid;place-items:center}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:2px 0 14px}
+  .toggle label{font-size:.95rem;font-weight:600;flex:1}
+  .toggle input{-webkit-appearance:none;appearance:none;width:48px;min-width:48px;height:28px;border-radius:30px;
+    background:var(--line-2);position:relative;cursor:pointer;margin:0;transition:background .2s}
+  .toggle input::before{content:"";position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;
+    background:var(--card);transition:transform .2s}
+  .toggle input:checked{background:var(--accent)}
+  .toggle input:checked::before{transform:translateX(20px)}
+  .steps{font-size:.875rem;line-height:1.55;color:var(--ink-soft);padding-left:18px;margin:6px 0 0}
   .steps li{margin-bottom:5px}
+
+  /* ---------- first open ---------- */
+  .welcome{margin:4px 0 22px}
+  .welcome .char{width:84px;height:84px;margin-bottom:16px}
+  .welcome h1{font-size:2.2rem;line-height:1.1;letter-spacing:-.055em;font-weight:750;margin:0 0 10px}
+  .welcome p{margin:0}
 
   .hidden{display:none !important}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
@@ -426,26 +491,18 @@
 </head>
 <body>
 <div class="app">
-  <div class="top">
-    <h1>Level</h1>
-    <div class="date" id="today"></div>
+  <div class="brandbar">
+    <div class="brand"><span class="mark"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14h13M11 5v9h8"/></svg></span>level</div>
+    <div class="local-pill"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10h12v11H6z M8 10V6a4 4 0 0 1 8 0v4"/></svg>On this device</div>
   </div>
   <div id="view"></div>
 </div>
 
-<nav class="tabs"><div>
-  <button data-act="tab" data-id="home">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
-    Home</button>
-  <button data-act="tab" data-id="calendar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-    Calendar</button>
-  <button data-act="tab" data-id="finances">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.7"/><path d="M6 9.5h.01M18 14.5h.01"/></svg>
-    Finances</button>
-  <button data-act="tab" data-id="settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9.5" cy="7" r="2.2" style="fill:var(--bg)"/><circle cx="15" cy="12" r="2.2" style="fill:var(--bg)"/><circle cx="8" cy="17" r="2.2" style="fill:var(--bg)"/></svg>
-    Settings</button>
+<nav class="tabs" aria-label="Main navigation"><div>
+  <button data-act="tab" data-id="home"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10l9-7 9 7v10H3z M9 20v-7h6v7"/></svg>Home</button>
+  <button data-act="tab" data-id="calendar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2 M7 2v5 M17 2v5 M3 10h18 M7 14h2 M15 14h2"/></svg>Calendar</button>
+  <button data-act="tab" data-id="finances"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h17v14H3z M3 6V4h14 M16 11h5v5h-5z"/></svg>Finances</button>
+  <button data-act="tab" data-id="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M10 3h4l1 3 3 1 3 3v4l-3 1-1 3-3 3h-4l-1-3-3-1-3-3v-4l3-1 1-3z"/></svg>Settings</button>
 </div></nav>
 
 <div class="toast" id="toast"></div>
@@ -924,7 +981,7 @@ function applyTheme(){
   document.documentElement.setAttribute('data-theme',t);
   const m=document.getElementById('tc');
   // the status bar behind the notch has to match the page, not the manifest
-  if(m) m.setAttribute('content',t==='dark'?'#0B1220':'#F3F5F9');
+  if(m) m.setAttribute('content',t==='dark'?'#111521':'#F4F6FA');
 }
 function setTheme(v){
   state.theme=v==='light'||v==='dark'?v:'auto';
@@ -1091,7 +1148,8 @@ function logHabit(id,iso){
   const done=loggedOn(id,iso);
   if(h.mode==='daily'&&done.length){
     state.log=state.log.filter(e=>e.id!==done[0].id);
-    save();afterXPChange();render();toast('Removed '+h.xp+' XP');
+    if(iso!==todayISO()) reconcilePenalties();          // un-logging a past day can earn a penalty
+    save();afterXPChange();render();toast('Removed '+h.xp+' XP'+(iso!==todayISO()?' from '+fmtShort(iso):''));
     return;
   }
   state.log.push({id:uid(),type:'habit',refId:id,name:h.name,xp:h.xp,date:iso,at:Date.now()});
@@ -1100,7 +1158,7 @@ function logHabit(id,iso){
   save();afterXPChange();render();
   if(charAnim==='pop') return;                       // the level-up toast already fired
   if(bonus==='awarded') toast((h.mode==='monthly'?h.perMonth:h.perWeek)+'× done — bonus +'+fmt(h.bonus)+' XP',true);
-  else toast('+'+h.xp+' XP');
+  else toast('+'+h.xp+' XP'+(iso!==todayISO()?' on '+fmtShort(iso):''));
 }
 // Half XP once an objective's deadline has passed: the goal was to do it by
 // then. ISO strings compare correctly, so plain > is a date comparison.
@@ -1504,13 +1562,49 @@ function characterSVG(L){
 /* =================================================================
    VIEWS
 ================================================================== */
+/* Line icons: one stroke style everywhere (the .ic class sets it). */
+const ICONS={
+  back:'M15 6l-6 6 6 6',
+  chevR:'M9 6l6 6-6 6',
+  pencil:'M4 20h4L19 9l-4-4L4 16z M14 6l4 4',
+  trash:'M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3',
+  plus:'M12 5v14 M5 12h14',
+  check:'M5 12l4 4L19 6',
+  flag:'M5 22V3 M5 3h14l-3 5 3 5H5',
+  tasks:'M9 5h12 M9 12h12 M9 19h12 M3 5l1 1 2-3 M3 12l1 1 2-3 M3 19l1 1 2-3',
+  sections:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
+  progress:'M4 20V12 M10 20V8 M16 20V4 M3 20h18 M3 8l6-5 4 2 7-4',
+  weight:'M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2 M7 8a6 6 0 0 1 10 0 M12 7l2 3'
+};
+const ic=k=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[k]}"/></svg>`;
+// the tick mark draws in currentColor, so it reads on the success fill in both themes
+const TICK_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg>';
+const listHTML=rows=>`<div class="list">${rows}</div>`;
+// An item editor opens as a sheet over the page: the scrim absorbs taps (it
+// has no action), so the only ways out are Save and Cancel - a stray tap
+// can never throw away half-typed input or tick something underneath.
+const sheet=html=>'<div class="scrim"></div>'+html.replace('<div class="form">','<div class="form sheet" role="dialog" aria-modal="true">');
+
+// Home's page head: the date, a greeting, and the companion character.
+function homeHeadHTML(){
+  const anim=charAnim;charAnim='';
+  return `<div class="pagehead">
+    <div><div class="eyebrow" id="today">${esc(fmtLong(todayISO()))}</div>
+      <h1>${state.name?'Your day, '+esc(state.name)+'.':'Your day.'}</h1></div>
+    <div class="char ${anim}" id="char">${characterSVG(levelInfo(cappedXP()).level)}</div>
+  </div>`;
+}
+// Top-level screens (Calendar, Finances, Settings): a title and one line.
+function pageHeadHTML(title,sub){
+  return `<div class="pagehead"><div><h1>${title}</h1><div class="meta">${sub}</div></div></div>`;
+}
 function heroHTML(){
-  const xp=cappedXP(),L=levelInfo(xp),s=streak(),t=todayISO();
+  const xp=cappedXP(),L=levelInfo(xp),t=todayISO();
   const TL=state.targetLevel,tXP=targetXP();
-  // the thin bar tracks LEVEL progress toward the target level: fractional
-  // levels climbed over levels needed, not XP over an XP figure
+  // the level scale runs 1-100 with the target level marked on it; the fill
+  // is the fractional level reached, so the gap to the marker is what is owed
   const Lfrac=L.level+(L.need?L.into/L.need:0);
-  const yearPct=TL>1?Math.max(0,Math.min(100,(Lfrac-1)/(TL-1)*100)):100;
+  const pos=lv=>Math.max(0,Math.min(100,(lv-1)/(LEVEL_CAP-1)*100));
   const span=dayDiff(state.start,state.deadline);
   const elapsed=dayDiff(state.start,t);
   const daysLeft=Math.max(0,dayDiff(t,state.deadline));
@@ -1524,79 +1618,79 @@ function heroHTML(){
     const diff=xp-expected;
     pace=(diff>=0?fmt(diff)+' XP ahead of pace. ':fmt(-diff)+' XP behind pace. ')+fmt(perDay)+' XP a day for '+daysLeft+' day'+(daysLeft===1?'':'s')+'.';
   }
-  const anim=charAnim;charAnim='';
+  const met=L.level>=TL;
   return `<div class="hero">
-    <div class="hero-row">
-      <div class="hero-text">
-        ${state.name?`<div class="hname">${esc(state.name)}</div>`:''}
-        <div class="lvl">Level ${L.level} <span>&middot; ${tierName(L.level)}</span><span class="goal80${L.level>=state.targetLevel?' met':''}">${L.level>=state.targetLevel?'goal '+state.targetLevel+' &#10003;':'goal '+state.targetLevel}</span></div>
-        <div class="total num">${fmt(xp)}</div>
-        <div class="totlab">total XP</div>
-        <div class="streak">${s?s+' day streak':'No streak yet'}</div>
-      </div>
-      <div class="char ${anim}" id="char">${characterSVG(L.level)}</div>
-    </div>
-    <div class="hero-bars">
-      <div class="bar"><i style="width:${L.pct.toFixed(2)}%"></i></div>
-      <div class="barmeta">${L.maxed
-        ?`<span>Maxed</span><span class="num">100,000 XP &mdash; the summit</span>`
-        :`<span class="num">${fmt(L.into)} / ${fmt(L.need)}</span>
-        <span class="num">${fmt(L.ceil-xp)} XP to level ${L.level+1}</span>`}</div>
-    </div>
+    <div class="eyebrow">${tierName(L.level)} tier</div>
+    <div class="lvl">Level ${L.level}</div>
+    <div class="totline"><span class="total num">${fmt(xp)}</span> total XP</div>
+    <div class="goal80${met?' met':''}" aria-label="Goal: level ${TL}${met?', reached':''}">${ic(met?'check':'flag')}<strong class="num">${TL}</strong><small>${met?'Reached':'Goal level'}</small></div>
+    <div class="barmeta">${L.maxed
+      ?`<span>Maxed</span><span class="num">100,000 XP &mdash; the summit</span>`
+      :`<span class="num">${fmt(L.into)} / ${fmt(L.need)} XP</span><span class="num">${fmt(L.ceil-xp)} XP to level ${L.level+1}</span>`}</div>
+    <div class="bar"><i style="width:${L.pct.toFixed(2)}%"></i></div>
+    <div class="bar thin"><i style="width:${pos(Lfrac).toFixed(2)}%"></i><b class="gmark" style="left:${pos(TL).toFixed(2)}%"></b></div>
+    <div class="scale num"><span>1</span><span>Goal ${TL}</span><span>100</span></div>
     <div class="yearbox">
-      <div class="yearhead"><b>Level ${TL} by ${fmtShort(state.deadline)}</b>
-        <span class="num">level ${L.level} / ${TL}</span></div>
-      <div class="bar thin"><i style="width:${yearPct.toFixed(2)}%"></i></div>
+      <div class="yearhead"><b>Level ${TL} by ${fmtShort(state.deadline)}</b><span class="num">level ${L.level} / ${TL}</span></div>
       <div class="pace">${pace}</div>
     </div>
   </div>`;
 }
 
-// One pip per required session, filled left to right as the week fills up.
-function pipsHTML(count,perWeek,color){
-  if(perWeek>7) return '';
+// One pip per required session, filled left to right as the period fills up.
+function pipsHTML(count,need,color){
+  if(need>14) return '';
   let s='<span class="pips" aria-hidden="true">';
-  for(let i=0;i<perWeek;i++) s+='<i style="'+(i<count?'background:'+color:'')+'"></i>';
+  for(let i=0;i<need;i++) s+='<i style="'+(i<count?'background:'+color:'')+'"></i>';
   return s+'</span>';
 }
-function habitRow(h,iso){
+/* A habit row for day `iso`. On Home that is today; the calendar passes a
+   past day in opts.day, and then the row logs onto that day, reads in the
+   past tense, and never nags "go today". */
+function habitRow(h,iso,opts){
+  opts=opts||{};
   const c=catOf(h.cat);
+  const live=iso===todayISO();
   const done=loggedOn(h.id,iso);
   const isDaily=h.mode==='daily';
   const isWeekly=h.mode==='weekly';
   const isMonthly=h.mode==='monthly';
   const isDone=isDaily&&done.length>0;
-  let sub,met=false;
+  const wk=live?'this week':'that week',mo=live?'this month':'that month';
+  let sub,met=false,pips='';
   if(isWeekly){
     const n=weekCount(h.id,iso),left=Math.max(0,h.perWeek-n);
     met=left===0;
-    sub=pipsHTML(n,h.perWeek,c.color)+(met&&n>h.perWeek?n+' this week':n+' of '+h.perWeek+' this week');
+    pips=pipsHTML(n,h.perWeek,c.color);
+    sub=met&&n>h.perWeek?n+' '+wk:n+' of '+h.perWeek+' '+wk;
     if(met) sub+=' &middot; <span class="met">done'+(h.bonus?', +'+fmt(h.bonus)+' bonus':'')+'</span>';
-    else if(weeklyDue(h,iso)) sub+=' &middot; <span class="due">'+(left>1?left+' left, go today':'go today')+'</span>';
+    else if(live&&weeklyDue(h,iso)) sub+=' &middot; <span class="due">'+(left>1?left+' left, go today':'go today')+'</span>';
     else sub+=' &middot; '+left+' to go';
   }else if(isMonthly){
     const n=monthCount(h.id,iso),left=Math.max(0,h.perMonth-n);
     met=left===0;
-    sub=pipsHTML(n,h.perMonth,c.color)+(met&&n>h.perMonth?n+' this month':n+' of '+h.perMonth+' this month');
+    pips=pipsHTML(n,h.perMonth,c.color);
+    sub=met&&n>h.perMonth?n+' '+mo:n+' of '+h.perMonth+' '+mo;
     if(met) sub+=' &middot; <span class="met">done'+(h.bonus?', +'+fmt(h.bonus)+' bonus':'')+'</span>';
-    else if(monthlyDue(h,iso)) sub+=' &middot; <span class="due">'+(left>1?left+' left, go today':'go today')+'</span>';
+    else if(live&&monthlyDue(h,iso)) sub+=' &middot; <span class="due">'+(left>1?left+' left, go today':'go today')+'</span>';
     else sub+=' &middot; '+left+' to go';
   }else if(isDaily){
     sub=isDone?'Done. Tap to undo.':'Once a day';
   }else{
-    sub=done.length?done.length+'&times; today, '+fmt(done.length*h.xp)+' XP':'Tap each time you do it';
+    sub=done.length?done.length+'&times; '+(live?'today':'that day')+', '+fmt(done.length*h.xp)+' XP':'Tap each time you do it';
   }
   if(h.duration) sub+=' &middot; '+h.duration+' min';   // informational label only
-  const label=isDaily?(isDone?'Undo ':'Log ')+h.name:'Log '+h.name;
-  return `<div class="row tap ${isDone?'done':''}" data-act="log" data-id="${esc(h.id)}" role="button" tabindex="0" aria-label="${esc(label)}">
-    <div class="edge" style="background:${c.color}"></div>
-    ${isDaily
-      ?`<div class="tick" style="${isDone?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>`
-      :`<div class="plus" style="background:${c.color}${met?';opacity:.55':''}">${met?'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>':'+'}</div>`}
-    <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${sub}</div></div>
-    <div class="xp num" style="color:${isDone?'':c.color}">${h.xp}</div>
+  const day=opts.day&&isValidISO(opts.day)?opts.day:null;
+  const label=(isDaily&&isDone?'Undo ':'Log ')+h.name+(day&&!live?' for '+fmtShort(day):'');
+  const act=day?`data-act="log-day" data-id="${esc(h.id)}" data-day="${day}"`:`data-act="log" data-id="${esc(h.id)}"`;
+  return `<div class="row tap ${isDone?'done':''}" ${act} role="button" tabindex="0" aria-label="${esc(label)}">
+    ${isDaily?`<div class="tick">${TICK_SVG}</div>`:`<div class="plus${met?' met':''}">${met?TICK_SVG:'+'}</div>`}
+    <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${sub}</div>${pips}</div>
+    <div class="xp num">+${fmt(h.xp)} XP</div>
   </div>`;
 }
+// opts.manage: the Sections row (tick + edit/delete); opts.view: Home's
+// read-only bigger-picture row (no controls at all).
 function goalRow(g,opts){
   const c=catOf(g.cat);opts=opts||{};
   const id=esc(g.id);
@@ -1606,24 +1700,28 @@ function goalRow(g,opts){
   const shown=e?e.xp:goalAward(g,t);
   const lateNow=!g.done&&g.deadline&&t>g.deadline;
   const wasLate=e&&e.xp<g.xp;
+  // in Sections the XP rides in the sub line (like the habit rows there), so
+  // the title keeps its width beside the tick and the edit/delete icons
+  const xpTag=`<span class="xp num">+${fmt(shown)} XP</span>`;
   let sub;
-  if(g.done) sub='Completed '+fmtShort(g.doneDate||'')+'. Tap to reopen.'+(wasLate?' <span class="due">Half XP, after the deadline.</span>':'');
+  if(g.done) sub='Completed '+fmtShort(g.doneDate||'')+'. Tap to reopen.'+(wasLate?' <span class="due">Half XP, after the deadline.</span>':'')+(opts.manage?' &middot; '+xpTag:'');
   else{
     const p=goalProgress(g);
     const base=p!==null
-      ?`<span class="gbar"><i style="width:${(p*100).toFixed(0)}%;background:${c.color}"></i></span><span class="num">${fmt(g.mCur)} / ${fmt(g.mTarget)}${g.mUnit?' '+esc(g.mUnit):''}</span>`
-      :(opts.manage?fmt(g.xp)+' XP when done':'Objective');
+      ?`<span class="gbar"><i style="width:${(p*100).toFixed(0)}%;background:${c.color}"></i></span><span class="num">${fmt(g.mCur)} / ${fmt(g.mTarget)}${g.mUnit?' '+esc(g.mUnit):''}</span>`+(opts.manage?' &middot; '+xpTag:'')
+      :(opts.manage?xpTag+' when done':`<span class="sdot" style="background:${c.color}"></span>${esc(c.name)}`);
     sub=base+(g.deadline?(lateNow
       ?' &middot; <span class="due">was due '+esc(fmtShort(g.deadline))+', half XP now</span>'
       :' &middot; by '+esc(fmtShort(g.deadline))):'');
   }
-  return `<div class="row ${g.done?'done':''} ${opts.manage?'':'tap'}" ${opts.manage?'':'data-act="goal" data-id="'+id+'" role="button" tabindex="0" aria-label="'+esc((g.done?'Reopen ':'Complete ')+g.name)+'"'}>
-    <div class="edge" style="background:${c.color}"></div>
-    <div class="tick" ${opts.manage?'data-act="goal" data-id="'+id+'"':''} style="border-radius:50%;${g.done?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+  const tap=!opts.manage&&!opts.view;
+  const aria=esc((g.done?'Reopen ':'Complete ')+g.name);
+  return `<div class="row ${g.done?'done':''} ${tap?'tap':''}" ${tap?'data-act="goal" data-id="'+id+'" role="button" tabindex="0" aria-label="'+aria+'"':''}>
+    ${opts.view?'':`<div class="tick" ${opts.manage?'data-act="goal" data-id="'+id+'" role="button" aria-label="'+aria+'"':''}>${TICK_SVG}</div>`}
     <div class="body"><div class="name">${esc(g.name)}</div>
       <div class="sub">${sub}</div></div>
-    <div class="xp num" style="color:${g.done?'':c.color}">${fmt(shown)}</div>
-    ${opts.manage?`<div class="acts"><button data-act="edit-goal" data-id="${id}">Edit</button><button class="danger" data-act="del-goal" data-id="${id}">Delete</button></div>`:''}
+    ${opts.manage?'':`<div class="xp num">+${fmt(shown)} XP</div>`}
+    ${opts.manage?`<div class="acts"><button data-act="edit-goal" data-id="${id}" aria-label="Edit ${esc(g.name)}">${ic('pencil')}</button><button class="danger" data-act="del-goal" data-id="${id}" aria-label="Delete ${esc(g.name)}">${ic('trash')}</button></div>`:''}
   </div>`;
 }
 
@@ -1632,22 +1730,26 @@ function taskRow(t,opts){
   const c=catOf(t.cat),id=esc(t.id);
   const future=dayDiff(todayISO(),t.date)>0;
   return `<div class="row task ${t.done?'done':''} ${future?'':'tap'}" ${future?'':'data-act="task" data-id="'+id+'" role="button" tabindex="0" aria-label="'+esc((t.done?'Reopen ':'Complete ')+t.name)+'"'}>
-    <div class="edge" style="background:${c.color}"></div>
-    <div class="tick" style="${t.done?'background:'+c.color+';border-color:'+c.color:''}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+    <div class="tick">${TICK_SVG}</div>
     <div class="body"><div class="name">${esc(t.name)}</div>
-      <div class="sub">${opts.sub||(t.done?'Done. Tap to undo.':esc(c.name))}${t.duration?' &middot; '+t.duration+' min':''}</div></div>
-    <div class="xp num" style="color:${t.done?'':c.color}">${fmt(t.xp)}</div>
-    ${opts.move?`<button class="cross" data-act="task-move" data-id="${id}" style="font-size:13px;font-weight:600;color:var(--accent)">Move to today</button>`:''}
-    <button class="cross" data-act="task-del" data-id="${id}" aria-label="Remove goal">&times;</button>
+      <div class="sub"><span class="sdot" style="background:${c.color}"></span>${opts.sub||(t.done?'Done. Tap to undo.':esc(c.name))}${t.duration?' &middot; '+t.duration+' min':''}</div></div>
+    <div class="xp num">+${fmt(t.xp)} XP</div>
+    ${opts.move?`<button class="cross mv" data-act="task-move" data-id="${id}">Move to today</button>`:''}
+    <button class="cross" data-act="task-del" data-id="${id}" aria-label="Remove task">&times;</button>
   </div>`;
 }
 function quickAddHTML(iso,withDate){
   const t=todayISO();
-  const label=withDate?'Add':iso===t?'Add goal':'Add for '+fmtShort(iso);
+  const label=withDate||iso===t?'Add task':'Add for '+fmtShort(iso);
   return `<div class="quick" id="quick-add">
+    <h3>New task</h3>
+    <div class="line"><input class="name" id="f-t-name" placeholder="Finish the marketing homework" maxlength="80" autocomplete="off" aria-label="Task name"></div>
     ${suggHTML('f-t-xp',30)}
-    <div class="line"><input class="name" id="f-t-name" placeholder="Finish the marketing homework" maxlength="80" autocomplete="off" aria-label="Goal name"><input class="xp num" id="f-t-xp" type="number" inputmode="numeric" min="1" step="1" value="25" aria-label="XP"><input class="xp num" id="f-t-dur" type="number" inputmode="numeric" min="1" step="1" placeholder="min (opt.)" style="width:92px;flex:0 0 92px" aria-label="Duration in minutes, optional"></div>
-    ${withDate?`<div class="line"><input type="date" id="f-t-date" value="${t}" aria-label="Day" style="flex:1;min-width:0;padding:10px 11px;border:1px solid var(--line-2);border-radius:10px;background:var(--input-bg);font-size:16px;min-height:44px"></div>`:''}
+    <div class="line">
+      <label class="qf">XP<input class="xp num" id="f-t-xp" type="number" inputmode="numeric" min="1" step="1" value="25" aria-label="XP"></label>
+      <label class="qf">Minutes<input class="xp num" id="f-t-dur" type="number" inputmode="numeric" min="1" step="1" placeholder="opt." aria-label="Duration in minutes, optional"></label>
+      ${withDate?`<label class="qf grow">Day<input type="date" id="f-t-date" value="${t}" aria-label="Day"></label>`:''}
+    </div>
     <div class="line"><select id="f-t-cat" aria-label="Section">${catOptions(state.lastTaskCat)}</select><button class="btn primary" data-act="task-add" data-id="${iso}">${label}</button></div>
   </div>`;
 }
@@ -1734,20 +1836,28 @@ function weightSectionHTML(){
     }
     meta=`<div class="wmeta">${parts.join('')}</div>`;
   }
-  const goalRow=goal===null?`<div class="wlog" style="margin-top:8px">
-      <input id="f-w-goal-h" inputmode="decimal" placeholder="Goal weight, e.g. 70" aria-label="Goal weight in kilograms" autocomplete="off">
+  const goalRow=goal===null?`<div class="wlabel" style="margin-top:16px">Goal weight (kg)</div>
+    <div class="wlog">
+      <input id="f-w-goal-h" inputmode="decimal" placeholder="e.g. 70" aria-label="Goal weight in kilograms" autocomplete="off">
       <button class="btn ghost" data-act="wt-goal-home">Set goal</button>
     </div>`:'';
   const hint=!state.weight.entries.length
-    ?`<div class="whint">Weigh in each morning and log it here. The chart plots each week's average, so one salty dinner cannot bend the line.${goal===null?' The goal draws the line to aim for.':''}</div>`
-    :weeks.length===1?`<div class="whint">First week underway. The trend line starts once a second week begins.</div>`:'';
-  return `<h2><span class="dot" style="background:var(--hero-b)"></span>Weight${latest?`<span class="count num">${fmtKg(latest.avg)} kg</span>`:''}</h2>
-    <div class="wcard">
+    ?`<div class="whint">Weigh in each morning and log it above. The chart plots each week's average, so one salty dinner cannot bend the line.${goal===null?' The goal draws the line to aim for.':''}</div>`
+    :weeks.length===1?`<div class="whint">First week underway. The trend line starts once a second week begins.</div>`
+    :`<div class="whint">Monday to Sunday: each point is the average of the mornings you logged that week.</div>`;
+  return `<div class="wcard">
+      <h3>${esc(fmtLong(t))}</h3>
+      <div class="wlabel">Weight (kg)</div>
       <div class="wlog">
         <input id="f-wt" inputmode="decimal" value="${today?fmtKg(today.kg):''}" placeholder="${state.weight.entries.length?fmtKg(state.weight.entries[state.weight.entries.length-1].kg):'72.4'}" aria-label="Today's weight in kilograms" autocomplete="off">
         <button class="btn primary" data-act="wt-log">${today?'Update':'Log today'}</button>
       </div>
-      ${goalRow}${meta}${weightChartSVG(weeks)}${hint}
+      <div class="whint" style="margin-top:8px">One reading a day; logging again the same day just corrects it.</div>
+      ${goalRow}
+    </div>
+    <div class="wcard">
+      <h3>Weekly averages${latest?`<span class="count num">${fmtKg(latest.avg)} kg</span>`:''}</h3>
+      ${meta}${weightChartSVG(weeks)}${hint}
     </div>`;
 }
 
@@ -1759,8 +1869,8 @@ function backupNudgeHTML(){
     <button data-act="export" style="display:block;margin-top:6px;font-weight:700;color:inherit;text-decoration:underline">Export a backup</button></div></div>`;
 }
 
-/* Home is the daily loop and nothing else: tick habits, tick today's goals,
-   log the weight. Planning and editing live in the Tasks and Sections tabs. */
+/* Home is the daily loop and nothing else: tick habits, tick today's tasks,
+   see the bigger picture. Planning and editing live in Tasks and Sections. */
 function viewHome(){
   const t=todayISO();
   const todayTotal=xpOn(t);
@@ -1770,18 +1880,18 @@ function viewHome(){
   const todays=state.hideDone?allToday.filter(x=>!x.done):allToday;
   const overdue=overdueTasks();
   const hiddenHint=n=>n?`<button class="mini dim" data-act="toggle-done">${n} done hidden &middot; show</button>`:'';
-  // the toggle shows whenever anything on this page is hideable: a done goal,
-  // a ticked daily habit, or a weekly habit whose count is met
+  // the toggle shows whenever anything on this page is hideable: a done task,
+  // a ticked daily habit, or a weekly/monthly habit whose count is met
   const habitsDone=state.habits.filter(h=>
     (h.mode==='daily'&&loggedOn(h.id,t).length)||
     (h.mode==='weekly'&&weeklyLeft(h,t)===0)||
     (h.mode==='monthly'&&monthlyLeft(h,t)===0)).length;
   const showToggle=doneCount+habitsDone>0||state.hideDone;
-  const goalsBlock=`<div class="goals-head"><h2>Today's goals${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>
-      <div>${showToggle?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button> `:''}<button data-act="go-tasks">+ Add goal</button></div></div>`+
-    (todays.length?todays.map(x=>taskRow(x)).join(''):allToday.length?'':`<div class="empty">No goals for today. Add one-off things like homework or errands from the Tasks tab.</div>`)+
+  const goalsBlock=`<div class="goals-head"><h2>Today's tasks${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>
+      <div>${showToggle?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button>`:''}<button data-act="go-tasks">+ Add</button></div></div>`+
+    (todays.length?listHTML(todays.map(x=>taskRow(x)).join('')):allToday.length?'':`<div class="empty">No tasks for today. Add one-off things like homework or errands from Tasks.</div>`)+
     (state.hideDone?hiddenHint(doneCount):'')+
-    (overdue.length?`<h3>Unfinished tasks</h3>`+overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'');
+    (overdue.length?`<h3>Unfinished tasks</h3>`+listHTML(overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join('')):'');
   const sections=state.cats.map(c=>{
     const hs=state.habits.filter(h=>h.cat===c.id);
     if(!hs.length) return '';
@@ -1791,28 +1901,35 @@ function viewHome(){
       (e.type==='goal'&&state.goals.some(g=>g.id===e.refId&&g.cat===c.id))||
       (e.type==='task'&&state.tasks.some(x=>x.id===e.refId&&x.cat===c.id))
     )).reduce((s,e)=>s+e.xp,0);
-    // "done" worth tucking away: a daily habit ticked today, a weekly habit
-    // whose count is met. Repeatable habits have no done state.
+    // "done" worth tucking away: a daily habit ticked today, a weekly or
+    // monthly habit whose count is met. Repeatable habits have no done state.
     const shown=state.hideDone?hs.filter(h=>!(
       (h.mode==='daily'&&loggedOn(h.id,t).length)||
       (h.mode==='weekly'&&weeklyLeft(h,t)===0)||
       (h.mode==='monthly'&&monthlyLeft(h,t)===0)
     )):hs;
-    return `<h2><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span class="count num">${fmt(catToday)} XP today</span></h2>`+
+    return listHTML(`<h2 class="grouph"><span class="dot" style="background:${c.color}"></span><span class="gname">${esc(c.name)}</span><span class="count num">${fmt(catToday)} XP today</span></h2>`+
       (shown.length?shown.map(h=>habitRow(h,t)).join('')
-        :`<div class="empty" style="padding:12px 16px">All done here for today.</div>`);
+        :`<div class="empty">All done here for today.</div>`));
   }).join('');
-  return heroHTML()+quickNavHTML()+
+  // the bigger picture, read-only here: progress is recorded in Sections
+  const openGoals=state.goals.filter(g=>!g.done);
+  const objBlock=openGoals.length?`<div class="blockhead"><h2>Objectives</h2><span class="meta">The bigger picture</span></div>`+
+    listHTML(openGoals.map(g=>goalRow(g,{view:true})).join('')):'';
+  const s=streak();
+  return homeHeadHTML()+quickNavHTML()+heroHTML()+
     `<div class="pendline"><span>Today</span>
       <span class="num">${fmt(todayTotal)} XP so far${pend.total?' &middot; '+pend.total+' left':' &middot; all done'}</span></div>`+
     reminderBannerHTML()+
     backupNudgeHTML()+
     goalsBlock+
-    (sections||`<div class="empty" style="margin-top:12px">No habits yet. Build your sections and habits in the Sections tab.</div>`)+
+    `<div class="blockhead"><h2>Your habits</h2><span class="streak">${s?s+' day streak':'No streak yet'}</span></div>`+
+    (sections||`<div class="empty">No habits yet. Build your sections and habits in Sections.</div>`)+
+    objBlock+
     `<div class="inline"><button class="btn ghost" data-act="undo">Undo last entry</button></div>`;
 }
 
-/* The Tasks tab: write tomorrow's list tonight. Add with a date, see today,
+/* The Tasks screen: write tomorrow's list tonight. Add with a date, see today,
    what is still owed from earlier days, and everything planned ahead. */
 function viewTasks(){
   const t=todayISO();
@@ -1825,16 +1942,16 @@ function viewTasks(){
   if(planned.length){
     const byDate=new Map();
     planned.forEach(x=>{if(!byDate.has(x.date))byDate.set(x.date,[]);byDate.get(x.date).push(x);});
-    plannedBlock=`<h2>Planned<span class="count num">${planned.length}</span></h2>`+
-      [...byDate.entries()].map(([d,xs])=>`<h3>${esc(fmtLong(d))}</h3>`+xs.map(x=>taskRow(x)).join('')).join('');
+    plannedBlock=`<div class="blockhead"><h2>Planned<span class="count num">${planned.length}</span></h2></div>`+
+      [...byDate.entries()].map(([d,xs])=>`<h3>${esc(fmtLong(d))}</h3>`+listHTML(xs.map(x=>taskRow(x)).join(''))).join('');
   }
-  return subHeadHTML('Tasks')+`<div class="goals-head" style="margin-top:4px"><h2>New goal</h2></div>`+
+  return subHeadHTML('Tasks','Make space for what matters today.')+
     quickAddHTML(t,true)+
     `<div class="goals-head"><h2>Today${allToday.length?`<span class="count num">${doneCount}/${allToday.length} done</span>`:''}</h2>${doneCount||state.hideDone?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button>`:''}</div>`+
-    (todays.length?todays.map(x=>taskRow(x)).join(''):allToday.length?'':`<div class="empty">Nothing set for today yet.</div>`)+
+    (todays.length?listHTML(todays.map(x=>taskRow(x)).join('')):allToday.length?'':`<div class="empty">Nothing set for today yet.</div>`)+
     (state.hideDone&&doneCount?`<button class="mini dim" data-act="toggle-done">${doneCount} done hidden &middot; show</button>`:'')+
-    (overdue.length?`<h2>Unfinished tasks<span class="count num">${overdue.length}</span></h2>`+
-      overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join(''):'')+
+    (overdue.length?`<div class="blockhead"><h2>Unfinished tasks<span class="count num">${overdue.length}</span></h2></div>`+
+      listHTML(overdue.map(x=>taskRow(x,{move:true,sub:'Set for '+fmtShort(x.date)})).join('')):'')+
     plannedBlock;
 }
 
@@ -1853,6 +1970,7 @@ function viewCalendar(){
   const first=new Date(cal.y,cal.m,1);
   const daysInMonth=new Date(cal.y,cal.m+1,0).getDate();
   const lead=(first.getDay()+6)%7;   // Monday-first
+  const penDays=new Set(state.log.filter(e=>e.type==='penalty').map(e=>e.date));
   const cells=[];
   for(let i=0;i<lead;i++) cells.push('<div class="day blank"></div>');
   let monthXP=0,best=0,bestDay=null,active=0;
@@ -1864,41 +1982,41 @@ function viewCalendar(){
     if(v>0){active++;if(v>best){best=v;bestDay=iso;}}
     const l=v<=0?0:v>=basis*0.7?3:v>=basis*0.35?2:1;
     const planned=future?state.tasks.filter(x=>x.date===iso).length:0;
-    cells.push(`<div class="day ${future?'future':''} ${iso===t?'today':''} ${iso===cal.sel?'sel':''}" data-l="${l}" data-act="pick" data-id="${iso}">${d}${v?'<span class="v num">'+fmt(v)+'</span>':(planned?'<span class="v num" style="opacity:1;color:var(--accent)">'+planned+' planned</span>':'')}</div>`);
+    const wt=!future&&!!weightOn(iso),pen=penDays.has(iso);
+    cells.push(`<div class="day ${future?'future':''} ${iso===t?'today':''} ${iso===cal.sel?'sel':''}" data-l="${l}" data-act="pick" data-id="${iso}"><span class="dn">${d}</span>${wt||pen?`<span class="dots">${wt?'<i class="wt"></i>':''}${pen?'<i class="pen"></i>':''}</span>`:''}${v?'<span class="v num">'+fmt(v)+'</span>':(planned?'<span class="v num plan">'+planned+' planned</span>':'')}</div>`);
   }
   while(cells.length%7) cells.push('<div class="day blank"></div>');
 
   const sel=isValidISO(cal.sel)?cal.sel:null;
   const selEntries=sel?entriesOn(sel):[];
   const selFuture=sel?dayDiff(t,sel)>0:false;
-  const habitOptions=state.habits.map(h=>`<option value="${esc(h.id)}">${esc(h.name)} (+${h.xp})</option>`).join('');
   const selTasks=sel?tasksOn(sel).sort((a,b)=>a.done-b.done):[];
   const tasksBlock=!sel?'':`
-    <h3>Goals for this day</h3>
-    ${selTasks.length?selTasks.map(x=>taskRow(x)).join(''):`<div class="empty" style="padding:14px">${selFuture?'Nothing planned yet.':'No goals were set.'}</div>`}
+    <h3>Tasks for this day</h3>
+    ${selTasks.length?listHTML(selTasks.map(x=>taskRow(x)).join('')):`<div class="empty" style="margin-bottom:12px">${selFuture?'Nothing planned yet.':'No tasks were set.'}</div>`}
     ${quickAddHTML(sel)}`;
+  const entryRows=selEntries.map(e=>{
+    const src=e.type==='goal'?state.goals.find(g=>g.id===e.refId):e.type==='task'?state.tasks.find(x=>x.id===e.refId):state.habits.find(h=>h.id===e.refId);
+    const col=src?catOf(src.cat).color:'var(--line-2)';
+    const tag=e.type==='goal'?'objective':e.type==='task'?'daily task':e.type==='bonus'?(e.span==='month'?'monthly bonus':'weekly bonus'):e.type==='penalty'?'level down':e.type==='finance'?'close-out':'';
+    // bonuses, penalties and close-outs are derived: no Remove of their own.
+    // A penalty goes away by backfilling a habit onto its two quiet days.
+    return `<div class="entry"><span class="edge" style="background:${col}"></span>
+      <span class="n">${esc(e.name)}${tag?' <span class="etag">'+tag+'</span>':''}</span>
+      <span class="x num${e.xp<0?' neg':''}">${e.xp<0?'&minus;'+fmt(-e.xp):'+'+fmt(e.xp)}</span>
+      ${e.type==='bonus'||e.type==='penalty'||e.type==='finance'?'':`<button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button>`}</div>`;
+  }).join('');
   const dayPanel=!sel?'':`
-    <h2>${esc(fmtLong(sel))}${selFuture?'':`<span class="count num">${fmt(xpOn(sel))} XP</span>`}</h2>
+    <div class="blockhead"><h2>${esc(fmtLong(sel))}${selFuture?'':`<span class="count num">${fmt(xpOn(sel))} XP</span>`}</h2></div>
     ${selFuture?tasksBlock:''}
-    ${selFuture?'':selEntries.length?selEntries.map(e=>{
-      const src=e.type==='goal'?state.goals.find(g=>g.id===e.refId):e.type==='task'?state.tasks.find(x=>x.id===e.refId):state.habits.find(h=>h.id===e.refId);
-      const col=src?catOf(src.cat).color:'#94A3B8';
-      const tag=e.type==='goal'?'objective':e.type==='task'?'daily goal':e.type==='bonus'?(e.span==='month'?'monthly bonus':'weekly bonus'):e.type==='penalty'?'level down':e.type==='finance'?'close-out':'';
-      // bonuses and penalties are derived: no Remove of their own. A penalty
-      // goes away by backfilling a habit onto its two quiet days.
-      return `<div class="entry"><span class="edge" style="background:${col}"></span>
-        <span class="n">${esc(e.name)}${tag?' <span style="color:var(--muted);font-size:12px">'+tag+'</span>':''}</span>
-        <span class="x num"${e.xp<0?' style="color:var(--red)"':''}>${e.xp<0?'&minus;'+fmt(-e.xp):'+'+fmt(e.xp)}</span>
-        ${e.type==='bonus'||e.type==='penalty'||e.type==='finance'?'':`<button data-act="rm-entry" data-id="${esc(e.id)}">Remove</button>`}</div>`;
-    }).join(''):`<div class="empty">Nothing logged on this day.</div>`}
-    ${selFuture?'':tasksBlock}
+    ${selFuture?'':selEntries.length?listHTML(entryRows):`<div class="empty">Nothing logged on this day.</div>`}
     ${selFuture||!state.habits.length?'':`
-    <div class="form" style="margin-top:10px"><h3>Log a habit for this day</h3>
-      <div class="field"><select id="f-cal-habit">${habitOptions}</select></div>
-      <button class="btn ghost" data-act="log-day" data-id="${sel}">Log it for ${sel===t?'today':fmtShort(sel)}</button>
-    </div>`}
+    <h3>Habits ${sel===t?'today':'on this day'}</h3>
+    <div class="meta" style="margin:-2px 2px 10px">Forgot to log one? Tap it to log it for ${sel===t?'today':'this day'}; tap a ticked one to take it back.</div>
+    <div class="list dayhabits">${state.habits.map(h=>habitRow(h,sel,{day:sel})).join('')}</div>`}
+    ${selFuture?'':tasksBlock}
     ${selFuture?'':`
-    <div class="form" style="margin-top:10px"><h3>Weight on this day</h3>
+    <div class="form" style="margin-top:14px"><h3>Weight on this day</h3>
       <div class="wlog">
         <input id="f-wt-day" inputmode="decimal" value="${(e=>e?fmtKg(e.kg):'')(weightOn(sel))}" placeholder="kg" aria-label="Weight in kilograms" autocomplete="off">
         <button class="btn primary" data-act="wt-log-day" data-id="${sel}">Save</button>
@@ -1906,14 +2024,18 @@ function viewCalendar(){
       </div>
     </div>`}`;
 
-  return `<div class="calhead">
-      <button data-act="cal-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <b>${MONTHS[cal.m]} ${cal.y}</b>
-      <button data-act="cal-next" aria-label="Next month"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+  return pageHeadHTML('Calendar','Every day tells a little of the story.')+
+    `<div class="calcard">
+      <div class="calhead">
+        <button data-act="cal-prev" aria-label="Previous month">${ic('back')}</button>
+        <b>${MONTHS[cal.m]} ${cal.y}</b>
+        <button data-act="cal-next" aria-label="Next month">${ic('chevR')}</button>
+      </div>
+      <div class="dow"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+      <div class="cal">${cells.join('')}</div>
+      <div class="legend"><span class="lgd"><i class="wt"></i>Weight</span><span class="lgd"><i class="pen"></i>Level lost</span>
+        <span class="lgs">Less <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i> More</span></div>
     </div>
-    <div class="dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
-    <div class="cal">${cells.join('')}</div>
-    <div class="legend">Less <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i> More</div>
     <div class="stats">
       <div class="stat"><b class="num">${fmt(monthXP)}</b><span>XP this month</span></div>
       <div class="stat"><b class="num">${active}</b><span>active day${active===1?'':'s'}</span></div>
@@ -1928,6 +2050,7 @@ function catOptions(selected){
 /* ---- shared forms (Sections tab) ---- */
 function catFormHTML(ed){
   return `<div class="form"><h3>${ed?'Edit section':'New section'}</h3>
+    <div class="fsub">Your unsaved input stays here until you save or cancel.</div>
     <div class="field"><label for="f-cat-name">Name</label><input id="f-cat-name" placeholder="Fitness" value="${ed?esc(ed.name):''}" maxlength="40"></div>
     <div class="field"><label>Colour</label><div class="swatches">${PALETTE.map(p=>`<button class="sw" style="background:${p}" data-act="color" data-id="${p}" aria-pressed="${pickedColor===p}" aria-label="${p}"></button>`).join('')}</div></div>
     <div class="inline"><button class="btn primary" data-act="save-cat">${ed?'Save changes':'Add section'}</button><button class="btn ghost" data-act="cancel">Cancel</button></div>
@@ -1954,15 +2077,18 @@ function suggestXP(ceil,imp,eff){
 function suggHTML(target,ceil){
   const row=kind=>`<div class="xseg" data-kind="${kind}" data-target="${target}" data-ceil="${ceil}">${
     [1,2,3,4,5].map(v=>`<button data-act="sugg" data-id="${v}" aria-pressed="${v===3}" aria-label="${kind==='imp'?'Importance':'Effort'} ${v}">${v}</button>`).join('')}</div>`;
-  return `<div class="two">
-      <div class="field" style="margin-bottom:6px"><label>Importance</label>${row('imp')}</div>
-      <div class="field" style="margin-bottom:6px"><label>Effort</label>${row('eff')}</div>
+  return `<div class="suggestion">
+    <div class="two">
+      <div class="field"><label>Importance</label>${row('imp')}</div>
+      <div class="field"><label>Effort</label>${row('eff')}</div>
     </div>
-    <div style="font-size:12px;color:var(--muted);margin:-2px 0 8px">Touch a dial and a suggested XP fills in below - type your own over it any time.</div>`;
+    <div class="snote">Touch a dial and a suggested XP fills in - type your own over it any time.</div>
+  </div>`;
 }
 
 function habitFormHTML(ed,presetCat){
   return `<div class="form"><h3>${ed?'Edit habit':'New habit'}</h3>
+    <div class="fsub">Your unsaved input stays here until you save or cancel.</div>
     <div class="field"><label for="f-h-name">Name</label><input id="f-h-name" placeholder="Gym session" value="${ed?esc(ed.name):''}" maxlength="60"></div>
     ${suggHTML('f-h-xp',100)}
     <div class="two">
@@ -1987,6 +2113,7 @@ function habitFormHTML(ed,presetCat){
 }
 function goalFormHTML(ed,presetCat){
   return `<div class="form"><h3>${ed?'Edit objective':'New objective'}</h3>
+    <div class="fsub">Your unsaved input stays here until you save or cancel.</div>
     <div class="field"><label for="f-g-name">What is it</label><input id="f-g-name" placeholder="Run 10k under 50 min" value="${ed?esc(ed.name):''}" maxlength="60"></div>
     ${suggHTML('f-g-xp',500)}
     <div class="two">
@@ -2013,14 +2140,13 @@ function linkedHabitsHTML(g){
   return `<div class="oblink">${hs.map(h=>`<div class="oblink-row"><span class="dot" style="background:${catOf(h.cat).color}"></span>${esc(h.name)}<span class="num">${h.mode==='daily'?'daily':h.mode==='weekly'?h.perWeek+'&times;/week':h.mode==='monthly'?h.perMonth+'&times;/month':'repeatable'}</span></div>`).join('')}</div>`;
 }
 
-/* One box per section, its habits and objectives together inside it. Add and
-   edit forms open in place, inside the box they belong to. */
+/* One card per section, its habits and objectives together inside it. Add
+   and edit forms open as sheets over the page, but they still live inside
+   the box they belong to. */
 function viewSections(){
   const doneObjectives=state.goals.filter(g=>g.done).length;
-  const head=doneObjectives||state.hideDone
-    ?`<div class="goals-head" style="margin-top:4px"><h2>Your sections</h2>
-       <button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button></div>`
-    :'';
+  const head=`<div class="goals-head" style="margin-top:0"><button class="mini" data-act="add-cat">${ic('plus')}Add section</button>${doneObjectives||state.hideDone
+    ?`<button data-act="toggle-done">${state.hideDone?'Show done':'Hide done'}</button>`:''}</div>`;
   const boxes=state.cats.map(c=>{
     const hs=state.habits.filter(h=>h.cat===c.id);
     const open=state.goals.filter(g=>g.cat===c.id&&!g.done);
@@ -2030,26 +2156,25 @@ function viewSections(){
     const edGoal=editing&&editing.type==='goal'?state.goals.find(g=>g.id===editing.id&&g.cat===c.id):null;
     const addHabit=adding&&adding.type==='habit'&&adding.cat===c.id;
     const addGoal=adding&&adding.type==='goal'&&adding.cat===c.id;
-    const habitRows=hs.map(h=>`<div class="row"><div class="edge"></div>
-      <div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':h.mode==='weekly'?h.perWeek+'&times; a week'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):h.mode==='monthly'?h.perMonth+'&times; a month'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):'Repeatable'} &middot; ${h.xp} XP${h.duration?' &middot; '+h.duration+' min':''}${h.objectiveId?(g=>g?' &middot; &rarr; '+esc(g.name):'')(state.goals.find(g=>g.id===h.objectiveId)):''}</div></div>
-      <div class="acts"><button data-act="edit-habit" data-id="${esc(h.id)}">Edit</button><button class="danger" data-act="del-habit" data-id="${esc(h.id)}">Delete</button></div></div>`).join('');
-    return `<div class="secbox" style="border-top:3px solid ${c.color}">
-      <div class="sechead"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b>
-        <div class="acts"><button data-act="edit-cat" data-id="${esc(c.id)}">Edit</button><button class="danger" data-act="del-cat" data-id="${esc(c.id)}">Delete</button></div></div>
-      ${edCat?catFormHTML(c):''}
-      <h3>Habits${hs.length?`<span class="count num" style="float:right;font-weight:500">${hs.length}</span>`:''}</h3>
+    const habitRows=hs.map(h=>`<div class="row"><div class="body"><div class="name">${esc(h.name)}</div><div class="sub">${h.mode==='daily'?'Once a day':h.mode==='weekly'?h.perWeek+'&times; a week'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):h.mode==='monthly'?h.perMonth+'&times; a month'+(h.bonus?', +'+fmt(h.bonus)+' bonus':''):'Repeatable'} &middot; ${h.xp} XP${h.duration?' &middot; '+h.duration+' min':''}${h.objectiveId?(g=>g?' &middot; &rarr; '+esc(g.name):'')(state.goals.find(g=>g.id===h.objectiveId)):''}</div></div>
+      <div class="acts"><button data-act="edit-habit" data-id="${esc(h.id)}" aria-label="Edit ${esc(h.name)}">${ic('pencil')}</button><button class="danger" data-act="del-habit" data-id="${esc(h.id)}" aria-label="Delete ${esc(h.name)}">${ic('trash')}</button></div></div>`).join('');
+    return `<div class="secbox">
+      <div class="sechead"><span class="dot" style="background:${c.color}"></span><b>${esc(c.name)}</b><span class="count num">${hs.length+open.length+done.length}</span>
+        <div class="acts"><button data-act="edit-cat" data-id="${esc(c.id)}" aria-label="Edit section ${esc(c.name)}">${ic('pencil')}</button><button class="danger" data-act="del-cat" data-id="${esc(c.id)}" aria-label="Delete section ${esc(c.name)}">${ic('trash')}</button></div></div>
+      ${edCat?sheet(catFormHTML(c)):''}
+      <h3>Habits${hs.length?`<span class="count num">${hs.length}</span>`:''}</h3>
       ${habitRows||`<div class="empty">No habits yet.</div>`}
-      ${edHabit?habitFormHTML(edHabit,c.id):addHabit?habitFormHTML(null,c.id):`<button class="mini" data-act="add-habit" data-id="${esc(c.id)}">+ Add habit</button>`}
-      <h3>Objectives${done.length?`<span class="count num" style="float:right;font-weight:500">${done.length} done</span>`:''}</h3>
+      ${edHabit?sheet(habitFormHTML(edHabit,c.id)):addHabit?sheet(habitFormHTML(null,c.id)):''}
+      <button class="mini" data-act="add-habit" data-id="${esc(c.id)}">${ic('plus')}Add habit</button>
+      <h3>Objectives${done.length?`<span class="count num">${done.length} done</span>`:''}</h3>
       ${open.map(g=>goalRow(g,{manage:true})+linkedHabitsHTML(g)).join('')+(state.hideDone?'':done.map(g=>goalRow(g,{manage:true})+linkedHabitsHTML(g)).join(''))||(state.hideDone&&done.length?'':`<div class="empty">No objectives yet.</div>`)}
       ${state.hideDone&&done.length?`<button class="mini dim" data-act="toggle-done">${done.length} done hidden &middot; show</button>`:''}
-      ${edGoal?goalFormHTML(edGoal,c.id):addGoal?goalFormHTML(null,c.id):`<button class="mini" data-act="add-objective" data-id="${esc(c.id)}">+ Add objective</button>`}
+      ${edGoal?sheet(goalFormHTML(edGoal,c.id)):addGoal?sheet(goalFormHTML(null,c.id)):''}
+      <button class="mini" data-act="add-objective" data-id="${esc(c.id)}">${ic('plus')}Add objective</button>
     </div>`;
   }).join('');
-  const newCat=adding&&adding.type==='cat'
-    ?catFormHTML(null)
-    :`<button class="btn ghost" data-act="add-cat">+ New section</button>`;
-  return subHeadHTML('Sections')+head+boxes+newCat+headroomHTML();
+  const newCat=adding&&adding.type==='cat'?sheet(catFormHTML(null)):'';
+  return subHeadHTML('Sections','Your habits and objectives, organised your way.')+head+boxes+newCat+headroomHTML();
 }
 
 /* Headroom advisory: how much of the target the recurring items already
@@ -2210,7 +2335,7 @@ function viewProgress(){
   const range=kind==='day'?esc(fmtLong(t))
     :kind==='week'?esc(fmtShort(from))+' &ndash; '+esc(fmtShort(end))
     :MONTHS[parseLocal(t).getMonth()]+' '+parseLocal(t).getFullYear()+', day '+daysIn+' of '+(dayDiff(from,end)+1);
-  return subHeadHTML('Progress')+`<div class="seg">${[['day','Day'],['week','Week'],['month','Month']].map(p=>
+  return subHeadHTML('Progress','A record of showing up.')+`<div class="seg">${[['day','Day'],['week','Week'],['month','Month']].map(p=>
       `<button data-act="prog" data-id="${p[0]}" aria-pressed="${prog===p[0]}">${p[1]}</button>`).join('')}</div>
     <div class="wcard">
       <div class="progdate">${range}</div>
@@ -2219,10 +2344,10 @@ function viewProgress(){
       <div class="progsay">${say}</div>
       ${kind==='day'?'':progressBarsSVG(from,end,perDay)}
     </div>
-    <h2>Went well</h2>
-    ${wins.length?wins.map(w=>item('win',w)).join(''):item('','Nothing logged yet '+label+'. The first tap is the hardest one.')}
-    <h2>Worth watching</h2>
-    ${watch.length?watch.map(w=>item('watch',w)).join(''):item('win','Nothing slipped '+label+'. Clean sheet.')}`;
+    <div class="blockhead"><h2>Went well</h2></div>
+    ${listHTML(wins.length?wins.map(w=>item('win',w)).join(''):item('','Nothing logged yet '+label+'. The first tap is the hardest one.'))}
+    <div class="blockhead"><h2>Worth watching</h2></div>
+    ${listHTML(watch.length?watch.map(w=>item('watch',w)).join(''):item('win','Nothing slipped '+label+'. Clean sheet.'))}`;
 }
 
 /* =================================================================
@@ -2359,6 +2484,7 @@ function reopenFinMonth(ym){
 }
 function finCatFormHTML(ed){
   return `<div class="form"><h3>${ed?'Edit category':'New category'}</h3>
+    <div class="fsub">Your unsaved input stays here until you save or cancel.</div>
     <div class="field"><label for="f-fc-name">Name</label><input id="f-fc-name" placeholder="Groceries" maxlength="40" autocomplete="off" value="${ed?esc(ed.name):''}"></div>
     <div class="two">
       <div class="field"><label for="f-fc-budget">Monthly budget (£)</label><input id="f-fc-budget" inputmode="decimal" placeholder="250" autocomplete="off" value="${ed?ed.budget:''}"></div>
@@ -2368,7 +2494,7 @@ function finCatFormHTML(ed){
       <div id="f-fc-subs">${(ed&&ed.subs?ed.subs:[]).map(sb=>
         `<div class="subrow" data-subid="${esc(sb.id)}"><input value="${esc(sb.name)}" maxlength="40" autocomplete="off" aria-label="Subcategory name"><button data-act="fc-sub-del" aria-label="Remove subcategory">&times;</button></div>`).join('')}</div>
       <button class="mini dim" data-act="fc-sub-add" style="margin-top:2px">+ Add subcategory</button>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">Split the month's spend into parts. The category keeps its one budget, direction and XP - the parts just add up.</div>
+      <div class="snote" style="margin-top:4px">Split the month's spend into parts. The category keeps its one budget, direction and XP - the parts just add up.</div>
     </div>
     <div class="field"><label>Direction</label>
       <div class="finseg">
@@ -2387,20 +2513,23 @@ function viewFinance(){
   const totB=cats.reduce((s,c)=>s+c.budget,0);
   const totS=cats.reduce((s,c)=>s+finSpentOf(c,m).sp,0);
   const j=finJudge(ym);
-  const head=`<div class="calhead">
-      <button data-act="fin-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <b>${esc(finLabel(ym))}</b>
-      <button data-act="fin-next" aria-label="Next month" ${ym===cur?'disabled style="opacity:.35"':''}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    </div>
-    <div class="progdate">${ym===cur?'Current month':'Past month'}${m.closed?' &middot; closed':''}</div>`;
+  const head=`<div class="calcard fin">
+      <div class="calhead">
+        <button data-act="fin-prev" aria-label="Previous month">${ic('back')}</button>
+        <b>${esc(finLabel(ym))}</b>
+        <button data-act="fin-next" aria-label="Next month" ${ym===cur?'disabled style="opacity:.35"':''}>${ic('chevR')}</button>
+      </div>
+      <div class="progdate">${ym===cur?'Current month':'Past month'}${m.closed?' &middot; closed':''}</div>
+    </div>`;
   const closedBanner=m.closed
-    ?`<div class="note" style="margin-bottom:10px;display:flex;align-items:center;gap:10px"><span style="flex:1"><b>Closed.</b> ${m.awarded?fmt(m.awarded)+' XP awarded.':'No XP awarded.'}</span><button class="mini" style="margin:0" data-act="fin-reopen" data-id="${ym}">Reopen</button></div>`
+    ?`<div class="note" style="margin-bottom:14px;display:flex;align-items:center;gap:10px"><span style="flex:1"><b>Closed.</b> ${m.awarded?fmt(m.awarded)+' XP awarded.':'No XP awarded.'}</span><button class="mini" style="margin:0" data-act="fin-reopen" data-id="${ym}">Reopen</button></div>`
     :'';
   const incomeBlock=`<div class="wcard">
     ${closedBanner}
+    <h3>Monthly allowance</h3>
     <div class="wlog"><input id="f-fin-income" inputmode="decimal" autocomplete="off" aria-label="Monthly allowance in pounds" placeholder="Monthly allowance, £" value="${income!==null?income:''}"><button class="btn primary" data-act="fin-income">Save</button></div>
-    ${income===null?'<div class="whint">Set your monthly allowance and the card shows what is left as the month fills in. Everything here is £.</div>':''}
-    <div class="wmeta" style="margin-top:12px">
+    ${income===null?'<div class="whint">Set your monthly allowance and this card shows what is left as the month fills in. Everything here is £.</div>':''}
+    <div class="wmeta">
       <span><b class="num">${gbp(totB)}</b> budgeted</span>
       <span><b class="num">${gbp(totS)}</b> spent</span>
       ${income!==null?`<span class="${income-totS<0?'fin-bad':''}"><b class="num">${gbp(income-totS)}</b> left</span>`:''}
@@ -2409,15 +2538,16 @@ function viewFinance(){
   const rows=cats.map(c=>{
     const hasSubs=c.subs&&c.subs.length>0;
     const {has,sp}=finSpentOf(c,m);
-    let verdict='';
+    let verdict='',ok=false;
     if(has){
-      const ok=c.dir==='over'?sp>=c.budget:sp<=c.budget;
+      ok=c.dir==='over'?sp>=c.budget:sp<=c.budget;
       const d=sp-c.budget;
       const word=c.dir==='over'
         ?(ok?(d===0?'target met':gbp(d)+' past target'):gbp(-d)+' short')
         :(ok?(d===0?'at budget':gbp(-d)+' under'):gbp(d)+' over');
       verdict=` &middot; <span class="${ok?'fin-good':'fin-bad'}">${word}</span>`;
     }
+    const pct=has?(c.budget>0?Math.min(100,sp/c.budget*100):(sp>0?100:0)):0;
     const ed=editing&&editing.type==='fincat'&&editing.id===c.id;
     // with subs, the parent shows the derived total (never an input); the
     // inputs live on the sub rows below it
@@ -2438,26 +2568,26 @@ function viewFinance(){
     }).join(''):'';
     return `<div class="row finrow">
       <div class="body"><div class="name">${esc(c.name)}</div>
-        <div class="sub num">${gbp(c.budget)} ${c.dir==='over'?'target':'budget'}${verdict}${c.xp?' &middot; '+fmt(c.xp)+' XP':''}</div></div>
+        <div class="sub num">${gbp(c.budget)} ${c.dir==='over'?'target':'budget'}${verdict}${c.xp?' &middot; '+fmt(c.xp)+' XP':''}</div>
+        ${has?`<div class="ftrack"><i style="width:${pct.toFixed(0)}%;background:var(${ok?'--fin-good':'--fin-bad'})"></i></div>`:''}</div>
       ${right}
-      <div class="acts"><button data-act="fin-edit" data-id="${esc(c.id)}">Edit</button><button class="danger" data-act="fin-del" data-id="${esc(c.id)}">Delete</button></div>
-    </div>`+subRows+(ed?finCatFormHTML(c):'');
+      <div class="acts"><button data-act="fin-edit" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">${ic('pencil')}</button><button class="danger" data-act="fin-del" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">${ic('trash')}</button></div>
+    </div>`+subRows+(ed?sheet(finCatFormHTML(c)):'');
   }).join('');
-  const addBlock=adding&&adding.type==='fincat'
-    ?finCatFormHTML(null)
-    :`<button class="mini" data-act="fin-add">+ Add category</button>`;
+  const addBlock=(adding&&adding.type==='fincat'?sheet(finCatFormHTML(null)):'')+
+    `<button class="mini" data-act="fin-add">${ic('plus')}Add category</button>`;
   const closeBlock=!m.closed&&ym<=cur?`
     <div class="form" style="margin-top:16px"><h3>Close out ${esc(finLabel(ym))}</h3>
-      <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">${cats.length
+      <div class="meta" style="margin-bottom:14px">${cats.length
         ?j.judged+' of '+cats.length+' categor'+(cats.length===1?'y':'ies')+' recorded'
           +(j.judged?'. Closing now pays <b>'+fmt(j.sum)+' XP</b>.':'.')
           +' A blank category is skipped; £0 is a real answer and gets judged.'
         :'Add categories first - there is nothing to judge yet.'}</div>
-      <button class="btn primary" data-act="fin-close" data-id="${ym}" ${cats.length?'':'disabled style="opacity:.5"'}>Close out ${esc(finMonthName(ym))}</button>
+      <button class="btn primary wide" data-act="fin-close" data-id="${ym}" ${cats.length?'':'disabled style="opacity:.5"'}>Close out ${esc(finMonthName(ym))}</button>
     </div>`:'';
-  return head+incomeBlock+
+  return pageHeadHTML('Finances','Monthly budgets. No ledger, no carry-over.')+head+incomeBlock+
     `<div class="goals-head"><h2>Categories${cats.length?`<span class="count num">${cats.length}</span>`:''}</h2></div>`+
-    (rows||`<div class="empty">No categories yet. Groceries, eating out, subscriptions, investing - each with a monthly figure and the XP it pays when you respect it.</div>`)+
+    (rows?listHTML(rows):`<div class="empty" style="margin-bottom:12px">No categories yet. Groceries, eating out, subscriptions, investing - each with a monthly figure and the XP it pays when you respect it.</div>`)+
     addBlock+closeBlock;
 }
 
@@ -2470,54 +2600,51 @@ function viewFinance(){
 /* Sub-screens (Tasks, Sections, Progress, Weight) are ordinary views on the
    existing tab mechanism - they just have no bottom-bar button. They are
    reached from the icon row on Home and carry this back header. */
-// The Home header row: the four sub-screens, each icon clearly labelled.
+// The Home shortcut row: the four sub-screens, each icon clearly labelled.
 // Sections is where all adding/editing lives, so it sits right there too.
 function quickNavHTML(){
   return `<div class="quicknav">
-    <button data-act="tab" data-id="tasks" aria-label="Open Tasks">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10.2l2.3 2.3 5-5"/><path d="M8 16h8"/></svg>Tasks</button>
-    <button data-act="tab" data-id="sections" aria-label="Open Sections, where habits and objectives are edited">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/></svg>Sections</button>
-    <button data-act="tab" data-id="progress" aria-label="Open Progress">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5.5-5.5 3.5 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>Progress</button>
-    <button data-act="tab" data-id="weight" aria-label="Open Weight">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.6 10.2a4.6 4.6 0 0 1 6.8 0"/><path d="M12 11.6l2-2.4"/></svg>Weight</button>
+    <button data-act="tab" data-id="tasks" aria-label="Open Tasks">${ic('tasks')}Tasks</button>
+    <button data-act="tab" data-id="sections" aria-label="Open Sections, where habits and objectives are edited">${ic('sections')}Sections</button>
+    <button data-act="tab" data-id="progress" aria-label="Open Progress">${ic('progress')}Progress</button>
+    <button data-act="tab" data-id="weight" aria-label="Open Weight">${ic('weight')}Weight</button>
   </div>`;
 }
-function subHeadHTML(title){
+function subHeadHTML(title,sub){
   return `<div class="subhead">
-    <button class="backbtn" data-act="tab" data-id="home" aria-label="Back to Home"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"/></svg>Home</button>
-    <b>${title}</b></div>`;
+    <button class="backbtn" data-act="tab" data-id="home" aria-label="Back to Home">${ic('back')}Home</button>
+    <h1>${title}</h1>${sub?`<div class="meta">${sub}</div>`:''}</div>`;
 }
 function viewWeight(){
-  return subHeadHTML('Weight')+weightSectionHTML();
+  return subHeadHTML('Weight','Daily logs. A steadier weekly trend.')+weightSectionHTML();
 }
 
 function viewSetup(){
   const y=new Date().getFullYear();
-  return `<div class="hero" style="text-align:center;padding-top:26px">
-      <div class="char" style="margin:0 auto">${characterSVG(1)}</div>
-      <div class="total" style="font-size:32px;margin-top:10px">Welcome to Level</div>
-      <div class="totlab" style="opacity:.9">Habits in. XP out. Levels up.</div>
+  return `<div class="welcome">
+      <div class="char">${characterSVG(1)}</div>
+      <div class="eyebrow">Your progress starts here</div>
+      <h1>Welcome to Level.</h1>
+      <p class="meta">A little structure. A few good habits. A new way to see how far you've come.</p>
     </div>
     <div class="form"><h3>About you</h3>
-      <div class="field"><label for="f-su-name">Your name</label><input id="f-su-name" maxlength="30" placeholder="Lorenzo" autocomplete="off"></div>
+      <div class="field"><label for="f-su-name">What should we call you?</label><input id="f-su-name" maxlength="30" placeholder="Your name" autocomplete="off"></div>
       <div class="field"><label for="f-su-cat">Your first section</label><input id="f-su-cat" maxlength="40" value="Fitness" autocomplete="off"></div>
       <div class="field"><label>Its colour</label><div class="swatches">${PALETTE.map(p=>`<button class="sw" style="background:${p}" data-act="color" data-id="${p}" aria-pressed="${pickedColor===p}" aria-label="${p}"></button>`).join('')}</div></div>
-      <div style="font-size:12.5px;color:var(--muted)">Sections group your habits and objectives - School, Personal and the rest can join later.</div>
+      <div class="meta">Sections group your habits and objectives - School, Personal and the rest can join later.</div>
     </div>
     <div class="form"><h3>Your target</h3>
       <div class="two">
         <div class="field"><label for="f-su-target">Target level (1-100)</label><input id="f-su-target" type="number" inputmode="numeric" min="1" max="100" step="1" value="80"></div>
         <div class="field"><label for="f-su-deadline">By when</label><input id="f-su-deadline" type="date" value="${localISO(new Date(y,11,31))}"></div>
       </div>
-      <div style="font-size:12.5px;color:var(--muted)">No idea yet? Keep the defaults - everything here changes any time under Settings.</div>
+      <div class="meta">No idea yet? Keep the defaults - everything here changes any time under Settings.</div>
     </div>
     <div class="form"><h3>Weight goal (optional)</h3>
       <div class="field"><label for="f-su-weight">Goal weight (kg)</label><input id="f-su-weight" inputmode="decimal" placeholder="70,0" autocomplete="off"></div>
-      <button class="btn primary" data-act="finish-setup">Start levelling</button>
+      <button class="btn primary wide" data-act="finish-setup">Let's begin</button>
     </div>
-    <div class="whint" style="text-align:center;margin-bottom:20px">Next stop: your first habit, its XP, and what it is worth to you.</div>`;
+    <div class="whint" style="text-align:center;margin-bottom:20px">Your progress stays on this device.</div>`;
 }
 function finishSetup(){
   const name=(document.getElementById('f-su-name').value||'').trim().slice(0,30);
@@ -2546,7 +2673,7 @@ function finishSetup(){
 }
 
 function viewSettings(){
-  return `<div class="form"><h3>You</h3>
+  return pageHeadHTML('Settings','Make Level yours.')+`<div class="form"><h3>You</h3>
       <div class="field"><label for="f-name">Name</label><input id="f-name" value="${esc(state.name)}" maxlength="30" autocomplete="off"></div>
       <button class="btn primary" data-act="save-name">Save name</button>
     </div>
@@ -2610,10 +2737,10 @@ function viewSettings(){
    ROUTER + EVENTS
 ================================================================== */
 function render(){
-  document.getElementById('today').textContent=fmtLong(todayISO());
   const tabsEl=document.querySelector('.tabs');
   if(!state.setup){                    // first open: the welcome flow, nothing else
     tabsEl.classList.add('hidden');
+    document.body.classList.remove('sheet-open');
     document.getElementById('view').innerHTML=viewSetup();
     scheduleCapture();
     return;
@@ -2621,6 +2748,8 @@ function render(){
   tabsEl.classList.remove('hidden');
   const v={home:viewHome,tasks:viewTasks,sections:viewSections,calendar:viewCalendar,progress:viewProgress,settings:viewSettings,finances:viewFinance,weight:viewWeight}[tab]||viewHome;
   document.getElementById('view').innerHTML=v();
+  // an open item editor is a sheet over the page: the page behind stays put
+  document.body.classList.toggle('sheet-open',!!document.querySelector('#view .sheet'));
   // sub-screens belong to Home, so the bottom bar keeps Home lit there
   const barTab=['tasks','sections','progress','weight'].includes(tab)?'home':tab;
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===barTab?'true':'false'));
@@ -2642,7 +2771,7 @@ const ACTIONS={
   pick:id=>{cal.sel=id;render();},
   'cal-prev':()=>{cal.m--;if(cal.m<0){cal.m=11;cal.y--;}render();},
   'cal-next':()=>{cal.m++;if(cal.m>11){cal.m=0;cal.y++;}render();},
-  'log-day':iso=>{const sel=document.getElementById('f-cal-habit');if(sel&&sel.value)logHabit(sel.value,iso);},
+  'log-day':(id,el)=>{const d=el&&el.dataset.day;if(isValidISO(d))logHabit(id,d);},
   color:id=>{pickedColor=id;document.querySelectorAll('.sw').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===id));},
   'add-cat':()=>{adding={type:'cat'};editing=null;pickedColor=PALETTE[0];render();focusForm('f-cat-name');},
   'add-habit':id=>{adding={type:'habit',cat:id};editing=null;render();focusForm('f-h-name');},

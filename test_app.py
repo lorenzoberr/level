@@ -97,7 +97,7 @@ with sync_playwright() as p:
     page.on("dialog", lambda dlg: dlg.accept())
     demo_boot(page)
     check("no JS errors on load", not errors, errors)
-    check("header shows local date", "Monday 7 September" in page.inner_text("#today"), page.inner_text("#today"))
+    check("header shows local date", "Monday 7 September" in page.text_content("#today"), page.text_content("#today"))
     check("starts at level 1 / 0 XP", "Level 1" in page.inner_text(".lvl") and page.inner_text(".total").strip() == "0")
     check("three seeded sections on home (weight moved to its sub-screen)", page.locator("h2 .dot").count() == 3)
     page.screenshot(path="shots/home_empty.png", full_page=True)
@@ -161,7 +161,7 @@ with sync_playwright() as p:
           and "done" in (page.locator(".secbox .row", has_text="Bench press").get_attribute("class") or ""))
     page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(50)
     check("objective adds XP", page.inner_text(".total").strip() == "400")
-    check("home lists habits only, no objective rows", page.locator(".row[data-act=goal]").count() == 0)
+    check("home shows objectives read-only: no tappable objective rows", page.locator(".row[data-act=goal]").count() == 0)
     page.locator("button[data-act=undo]").click(); page.wait_for_timeout(50)
     check("undo reopens objective and removes XP", page.inner_text(".total").strip() == "100")
 
@@ -177,7 +177,7 @@ with sync_playwright() as p:
     page.clock.run_for(45 * 60 * 1000)   # 23:30 -> 00:15 Tue 8 Sep
     page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
     page.wait_for_timeout(100)
-    check("header rolls over to Tuesday 8 September", "Tuesday 8 September" in page.inner_text("#today"), page.inner_text("#today"))
+    check("header rolls over to Tuesday 8 September", "Tuesday 8 September" in page.text_content("#today"), page.text_content("#today"))
     check("gym resets to 0x today after midnight", "Tap each time" in page.locator(".row[data-act=log]", has_text="Gym session").inner_text())
     check("streak still 1 (yesterday counts)", "1 day streak" in page.inner_text(".streak"))
     check("total XP unchanged after rollover", page.inner_text(".total").strip() == "100")
@@ -196,7 +196,7 @@ with sync_playwright() as p:
     check("7 Sep coloured with 100 XP", page.locator(".day[data-act=pick][data-id='2026-09-07']").get_attribute("data-l") == "3")
     check("8 Sep is today", "today" in page.locator(".day[data-id='2026-09-08']").get_attribute("class"))
     page.locator(".day[data-act=pick][data-id='2026-09-09']").click(); page.wait_for_timeout(50)
-    check("future day opens a planning panel with no habit logging", page.locator("#f-t-name").count() == 1 and page.locator("#f-cal-habit").count() == 0 and "Nothing planned" in page.inner_text("#view"))
+    check("future day opens a planning panel with no habit logging", page.locator("#f-t-name").count() == 1 and page.locator(".dayhabits").count() == 0 and "Nothing planned" in page.inner_text("#view"))
     page.fill("#f-t-name", "Submit essay draft"); page.fill("#f-t-xp", "60")
     page.locator("button[data-act=task-add]").click(); page.wait_for_timeout(50)
     check("goal planned on a future day", page.locator(".row.task", has_text="Submit essay draft").count() == 1)
@@ -206,12 +206,11 @@ with sync_playwright() as p:
 
     # backfill: pick yesterday, log Read 20 minutes
     page.locator(".day[data-act=pick][data-id='2026-09-07']").click()
-    page.wait_for_selector("#f-cal-habit")
+    page.wait_for_selector(".dayhabits")
     check("day panel shows 7 Sep entries", page.locator(".entry").count() == 2)
-    page.select_option("#f-cal-habit", label="Read 20 minutes (+10)")
-    page.locator("button[data-act=log-day]").click(); page.wait_for_timeout(50)
+    page.locator(".dayhabits .row", has_text="Read 20 minutes").click(); page.wait_for_timeout(50)
     check("backfilled entry lands on 7 Sep", page.locator(".entry").count() == 3 and "110 XP" in page.locator("h2", has_text="Monday 7 September").inner_text())
-    check("past day shows its goals list", "Goals for this day" in page.inner_text("#view"))
+    check("past day shows its tasks list", "Tasks for this day" in page.inner_text("#view"))
     # remove one gym entry from that day
     page.locator(".entry", has_text="Gym session").first.locator("button[data-act=rm-entry]").click(); page.wait_for_timeout(50)
     check("remove entry from a past day", page.locator(".entry").count() == 2)
@@ -275,6 +274,7 @@ with sync_playwright() as p:
     page.fill("#f-h-xp", "2.5")
     page.locator("button[data-act=save-habit]").click(); page.wait_for_timeout(50)
     check("rejects decimal XP", page.locator(".row", has_text="Bad").count() == 0)
+    page.locator("button[data-act=cancel]").click(); page.wait_for_timeout(40)   # the sheet is modal
     # edit gym: multi -> daily should collapse the 7 Sep double-log to one
     page.locator(".row", has_text="Gym session").locator("button[data-act=edit-habit]").click(); page.wait_for_timeout(50)
     check("habit edit prefilled", page.input_value("#f-h-name") == "Gym session" and page.input_value("#f-h-xp") == "50")
@@ -514,7 +514,7 @@ with sync_playwright() as p:
     # ---------- the week rolls over on Monday ----------
     page.clock.run_for(2 * 24 * 60 * 60 * 1000)   # Sat 12 -> Mon 14 Sep
     page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(120)
-    check("header moved to Monday 14 September", "Monday 14 September" in page.inner_text("#today"), page.inner_text("#today"))
+    check("header moved to Monday 14 September", "Monday 14 September" in page.text_content("#today"), page.text_content("#today"))
     check("weekly counter resets on Monday", "0 of 3 this week" in gym().inner_text(), gym().inner_text())
     check("Monday with a full week ahead does not nag", "go today" not in gym().inner_text(), gym().inner_text())
     check("last week's XP and bonus are untouched", page.inner_text(".total").strip() == "210")
@@ -581,9 +581,9 @@ with sync_playwright() as p:
     demo_boot(page)
     check("a dark phone gets the dark theme", page.evaluate("document.documentElement.getAttribute('data-theme')") == "dark")
     check("page background is the dark token",
-          page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(11, 18, 32)",
+          page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(17, 21, 33)",
           page.evaluate("getComputedStyle(document.body).backgroundColor"))
-    check("status bar colour follows the theme", page.get_attribute("#tc", "content") == "#0B1220")
+    check("status bar colour follows the theme", page.get_attribute("#tc", "content") == "#111521")
     check("color-scheme is set so native controls follow",
           page.evaluate("getComputedStyle(document.documentElement).colorScheme") == "dark")
 
@@ -603,7 +603,7 @@ with sync_playwright() as p:
     page.locator("button[data-act=theme][data-id=light]").click(); page.wait_for_timeout(60)
     check("forcing light overrides a dark phone",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
-          and page.get_attribute("#tc", "content") == "#F3F5F9")
+          and page.get_attribute("#tc", "content") == "#F4F6FA")
     reload_app(page)   # reopens on Settings, where the theme was forced
     check("the head script applies the forced theme before the first paint",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light")
@@ -620,7 +620,7 @@ with sync_playwright() as p:
     demo_boot(page)
     check("a light phone still gets the light theme",
           page.evaluate("document.documentElement.getAttribute('data-theme')") == "light"
-          and page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(243, 245, 249)")
+          and page.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(244, 246, 250)")
     ctx.close()
 
     # ---------- 3e. backup nudge ----------
@@ -779,7 +779,7 @@ with sync_playwright() as p:
     page.locator("button[data-act=save-goal]").click(); page.wait_for_timeout(60)
     check("an overdue objective says so and shows the halved amount",
           "was due 1 Sept 2026, half XP now" in row().inner_text()
-          and row().locator(".xp").inner_text().strip() == "150", row().inner_text())
+          and row().locator(".xp").inner_text().strip() == "+150 XP", row().inner_text())
     row().locator(".tick").click(); page.wait_for_timeout(60)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("completed after the deadline pays half",
@@ -1008,8 +1008,7 @@ with sync_playwright() as p:
     check("penalty visible on its day, not removable",
           "level down" in page.inner_text("#view")
           and page.locator(".entry", has_text="without logging").locator("button[data-act=rm-entry]").count() == 0)
-    page.select_option("#f-cal-habit", label="Read 20 minutes (+10)")
-    page.locator("button[data-act=log-day]").click(); page.wait_for_timeout(80)
+    page.locator(".dayhabits .row", has_text="Read 20 minutes").click(); page.wait_for_timeout(80)
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
     check("backfilling the quiet day lifts its penalty",
           [e["date"] for e in d["log"] if e["type"] == "penalty"] == ["2026-09-09", "2026-09-12"])
@@ -1117,13 +1116,14 @@ with sync_playwright() as p:
     reload_app(page)   # reopens in Sections with the first-habit form restored
     check("the welcome flow never returns, and the draft habit form survives the reload",
           page.locator("#f-su-name").count() == 0 and page.locator("#f-h-name").count() == 1)
+    page.locator("button[data-act=cancel]").click(); page.wait_for_timeout(40)   # the sheet is modal
     goto(page, "home")
-    check("the hero greets by name", "Lorenzo" in page.inner_text(".hero"))
+    check("Home greets by name", "Your day, Lorenzo." in page.inner_text(".pagehead h1"))
     page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.fill("#f-name", "Enzo")
     page.locator("button[data-act=save-name]").click(); page.wait_for_timeout(60)
     page.locator(".tabs button[data-act=tab][data-id=home]").click(); page.wait_for_timeout(60)
-    check("the name can be changed later under Settings", "Enzo" in page.inner_text(".hero"))
+    check("the name can be changed later under Settings", "Your day, Enzo." in page.inner_text(".pagehead h1"))
     page.locator(".tabs button[data-act=tab][data-id=settings]").click(); page.wait_for_timeout(60)
     page.locator("button[data-act=reset]").click(); page.wait_for_selector("#f-su-name")
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
@@ -1518,7 +1518,7 @@ with sync_playwright() as p:
     check("hero shows current level toward target level",
           "Level 80 by 31 May 2027" in page.inner_text(".yearhead")
           and "level 20 / 80" in page.inner_text(".yearhead"), page.inner_text(".yearhead"))
-    check("the goal chip follows the target level", page.inner_text(".goal80").strip() == "goal 80")
+    check("the goal stamp follows the target level", page.inner_text(".goal80 strong").strip() == "80")
     check("the thin bar tracks level progress toward the target",
           0 < float(page.evaluate("document.querySelectorAll('.bar.thin > i')[0].style.width.replace('%','')")) < 30)
     # a fresh install defaults to 80 in the onboarding form (covered above) and in seed
@@ -1538,7 +1538,7 @@ with sync_playwright() as p:
     check("home immediately shows the level edited in settings",
           "Level 85 by 31 May 2027" in page.inner_text(".yearhead")
           and "/ 85" in page.inner_text(".yearhead")
-          and "goal 85" in page.inner_text(".goal80"), page.inner_text(".yearhead"))
+          and page.inner_text(".goal80 strong").strip() == "85", page.inner_text(".yearhead"))
     check("no JS errors in the target-level flow", not rerr, rerr)
     ctx.close()
 
@@ -1695,7 +1695,7 @@ with sync_playwright() as p:
     # the month rolls over: counters reset, last month's XP and bonus stay put
     page.clock.run_for(24 * 60 * 60 * 1000)   # 30 Sep -> 1 Oct
     page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); page.wait_for_timeout(150)
-    check("header moved to October", "1 October" in page.inner_text("#today"), page.inner_text("#today"))
+    check("header moved to October", "1 October" in page.text_content("#today"), page.text_content("#today"))
     check("monthly counter resets on the 1st", "0 of 3 this month" in mrow().inner_text(), mrow().inner_text())
     check("a full month ahead does not nag", "go today" not in grow2().inner_text(), grow2().inner_text())
     d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
@@ -1983,6 +1983,121 @@ with sync_playwright() as p:
           d["habits"][0]["duration"] is None and d["habits"][1]["duration"] is None
           and d["habits"][2]["duration"] is None and d["tasks"][0]["duration"] is None)
     check("no JS errors in the duration flow", not duerr, duerr)
+    ctx.close()
+
+    # ---------- 3x. merged layout + logging on past days ----------
+    ctx = browser.new_context(**IPHONE)
+    page = ctx.new_page()
+    xerr = []
+    page.on("pageerror", lambda e: xerr.append(str(e)))
+    page.clock.install(time=datetime.datetime(2026, 9, 16, 10, 0, 0, tzinfo=ROME))  # Wednesday
+    page.on("dialog", lambda dlg: dlg.accept())
+    demo_boot(page)
+    # a week of history: 8k steps every day 10-15 Sep, plus one big day so a
+    # penalty has a level to take; weekly habit that asks for every day
+    page.evaluate("""() => { const s = JSON.parse(localStorage.getItem('level.v2'));
+        s.name = 'Lorenzo';
+        let n = 0; const put = (refId, name, xp, date) =>
+          s.log.push({id: 'x' + (n++), type: 'habit', refId, name, xp, date, at: n});
+        put('h3', 'Study 2 hours', 700, '2026-09-10');
+        for (const d of ['2026-09-10','2026-09-11','2026-09-12','2026-09-13','2026-09-14','2026-09-15'])
+          put('h2', '8k steps', 20, d);
+        s.habits.push({id:'hw', name:'Daily run', xp:15, mode:'weekly', perWeek:7, bonus:0, cat:'c-fit'});
+        localStorage.setItem('level.v2', JSON.stringify(s)); }""")
+    reload_app(page)
+
+    # the redesign is presentation only: visiting every screen writes nothing
+    before = page.evaluate("localStorage.getItem('level.v2')")
+    for t in ("home", "tasks", "sections", "progress", "weight", "calendar", "finances", "settings", "home"):
+        goto(page, t)
+    check("visiting every screen leaves the saved data byte-for-byte unchanged",
+          page.evaluate("localStorage.getItem('level.v2')") == before)
+
+    # the layout: brand bar, greeting with the date, shortcuts above the hero
+    check("brand bar and greeting head the page",
+          page.locator(".brandbar .brand").inner_text().strip() == "level"
+          and page.inner_text(".pagehead h1").strip() == "Your day, Lorenzo."
+          and page.text_content("#today").strip() == "Wednesday 16 September")
+    check("the shortcut row sits above the hero, as in the new layout",
+          page.evaluate("() => !!(document.querySelector('.quicknav').compareDocumentPosition(document.querySelector('.hero')) & 4)"))
+    check("the hero's level scale marks the target level (80 -> 79.8% along 1-100)",
+          page.inner_text(".goal80 strong").strip() == "80"
+          and abs(float(page.evaluate("document.querySelector('.gmark').style.left").rstrip("%")) - 79.8) < 0.01)
+    obj = page.locator(".row", has_text="Bench press bodyweight")
+    check("open objectives show on Home, read-only",
+          obj.count() == 1 and obj.get_attribute("data-act") is None and obj.locator(".tick").count() == 0)
+    check("rows carry their XP as +N XP", "+20 XP" in page.locator(".row[data-act=log]", has_text="8k steps").inner_text())
+
+    # item editors open as a modal sheet; a stray tap on the scrim changes nothing
+    goto(page, "sections"); page.wait_for_selector(".secbox")
+    page.locator(".secbox", has_text="Fitness").locator("button[data-act=add-habit]").click(); page.wait_for_timeout(50)
+    page.fill("#f-h-name", "Half typed")
+    check("the habit form opens as a sheet over a scrim, page behind locked",
+          page.locator(".form.sheet").count() == 1 and page.locator(".scrim").count() == 1
+          and page.evaluate("document.body.classList.contains('sheet-open')"))
+    page.locator(".scrim").click(position={"x": 8, "y": 8}, force=True); page.wait_for_timeout(50)
+    check("tapping the scrim neither closes the sheet nor loses what was typed",
+          page.locator(".form.sheet").count() == 1 and page.input_value("#f-h-name") == "Half typed")
+    page.locator("button[data-act=cancel]").click(); page.wait_for_timeout(50)
+    check("Cancel closes the sheet and unlocks the page",
+          page.locator(".form.sheet").count() == 0 and page.locator(".scrim").count() == 0
+          and not page.evaluate("document.body.classList.contains('sheet-open')"))
+
+    # past days: one tappable row per habit, logging onto that exact day
+    goto(page, "calendar"); page.wait_for_selector(".cal")
+    page.locator(".day[data-act=pick][data-id='2026-09-14']").click(); page.wait_for_timeout(60)
+    rows = page.locator(".dayhabits .row")
+    check("a past day lists every habit as a row to tap", rows.count() == 6)
+    read = lambda: page.locator(".dayhabits .row", has_text="Read 20 minutes")
+    read().click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("tapping a forgotten habit logs it on that day, not today",
+          [e["date"] for e in d["log"] if e["refId"] == "h4"] == ["2026-09-14"]
+          and "on 14 Sept 2026" in page.inner_text("#toast") and "done" in (read().get_attribute("class") or ""))
+    read().click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("tapping it again takes it back", not [e for e in d["log"] if e["refId"] == "h4"]
+          and "from 14 Sept 2026" in page.inner_text("#toast"))
+    gym = lambda: page.locator(".dayhabits .row", has_text="Gym session")
+    gym().click(); page.wait_for_timeout(50); gym().click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("a repeatable habit can be logged several times on a past day",
+          [e["date"] for e in d["log"] if e["refId"] == "h1"] == ["2026-09-14", "2026-09-14"]
+          and "2\u00d7 that day" in gym().inner_text(), gym().inner_text())
+    run = page.locator(".dayhabits .row", has_text="Daily run").inner_text()
+    check("a past day's weekly row reads in the past tense and never says go today",
+          "that week" in run and "go today" not in run, run)
+    goto(page, "home")
+    check("while today's row for the same habit still nags",
+          "go today" in page.locator(".row[data-act=log]", has_text="Daily run").inner_text())
+
+    # un-ticking past days is re-judged at once: two quiet days cost a level
+    goto(page, "calendar"); page.wait_for_selector(".cal")
+    for day in ("2026-09-12", "2026-09-13"):
+        page.locator(".day[data-act=pick][data-id='%s']" % day).click(); page.wait_for_timeout(50)
+        page.locator(".dayhabits .row", has_text="8k steps").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    pens = [e for e in d["log"] if e["type"] == "penalty"]
+    # 700 + 6x20 steps + 2x50 gym on the 14th = 920; minus the two emptied days = 880,
+    # which is level 7 (879), so the drop lands exactly on level 6's floor
+    check("emptying two past days via their rows applies the penalty immediately",
+          [e["date"] for e in pens] == ["2026-09-13"]
+          and sum(e["xp"] for e in d["log"]) == page.evaluate("xpForLevel(6)") == 686, pens)
+    page.locator(".dayhabits .row", has_text="8k steps").click(); page.wait_for_timeout(60)
+    d = json.loads(page.evaluate("localStorage.getItem('level.v2')"))
+    check("and logging one of them back lifts it again",
+          not [e for e in d["log"] if e["type"] == "penalty"])
+    # every colour token the page paints with must exist in BOTH themes: an
+    # undefined var() silently falls back to black (today's Progress bar did)
+    src = pathlib.Path("index.html").read_text(encoding="utf-8")
+    import re as _re
+    light = src[src.index(":root{"):]; light = light[:light.index("}")]
+    dark = src[src.index(':root[data-theme="dark"]{'):]; dark = dark[:dark.index("}")]
+    ldef = set(_re.findall(r"(--[a-z0-9-]+)\s*:", light)); ddef = set(_re.findall(r"(--[a-z0-9-]+)\s*:", dark))
+    used = set(_re.findall(r"var\((--[a-z0-9-]+)\)", src))
+    check("every colour token used is defined, and dark restates every light token",
+          not (used - ldef) and not (ldef - ddef - {"--r"}), (sorted(used - ldef), sorted(ldef - ddef)))
+    check("no JS errors in the merged layout", not xerr, xerr)
     ctx.close()
 
     # ---------- 4. desktop width sanity + manifest/sw reachable ----------

@@ -143,6 +143,25 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
   is capped in one place, and the hero reads `cappedXP()`. Milestones:
   L2=100, L5=511, L10=1,569, L20=5,076, L50=26,742, L80=65,125,
   L100=100,000 exactly - pinned in tests.
+- Look (Sept 2026 merge): the layout of the owner's ChatGPT-built clone,
+  carried onto this codebase with every feature and rule of this app kept.
+  Static brand bar ("level" mark + "On this device"); each view opens with
+  a page head - `homeHeadHTML()` (date eyebrow `#today`, "Your day, Name.",
+  the character), `pageHeadHTML(title,sub)` for Calendar/Finances/Settings,
+  `subHeadHTML(title,sub)` (back button + title) for the sub-screens. Home
+  order: head, shortcut row, navy hero (tier eyebrow, "Level N", total XP,
+  the goal-level stamp `.goal80`, XP-to-next bar, a 1-100 level scale with
+  the target marked by `.gmark`, deadline + pace), today's tasks, habits
+  grouped per section in `.list` cards, then open objectives READ-ONLY
+  (`goalRow(g,{view:true})`: no tick, no data-act). Rows sit inside `.list`
+  cards (`listHTML()`), XP shows as "+N XP", ticks draw in currentColor.
+  Item editors (section/habit/objective/finance-category forms) open as a
+  modal SHEET via `sheet(html)`: a scrim with no action absorbs taps, so
+  Save/Cancel are the only exits and a stray tap cannot lose half-typed
+  input or tick something underneath; `render()` sets `body.sheet-open`.
+  The sheet still lives inside its section's DOM box, so draft restore and
+  "form opens inside that box" behaviour are unchanged. Tests that open an
+  editor must Cancel before clicking anything behind it.
 - Rendering: four bottom tabs (Home, Calendar, Finances, Settings) plus four
   SUB-SCREENS (Tasks, Sections, Progress, Weight) reached from the labelled
   icon row on Home (`quickNavHTML()`); a sub-screen is an ordinary view on
@@ -155,8 +174,16 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
   and `render()` replaces `#view`. All clicks go through one delegated listener
   keyed on `data-act` / `data-id`. Never use inline `onclick`.
   - **Home** is the daily loop only: tick habits, tick today's goals, see
-    what is owed, and reach the four sub-screens from the icon row under the
+    what is owed, and reach the four sub-screens from the icon row above the
     hero. Nothing is added or edited here; weight lives on its sub-screen.
+  - **Calendar** day panel for a past (or today's) day lists EVERY habit as
+    a tappable row, `habitRow(h,iso,{day:iso})` with `data-act="log-day"`
+    and `data-day`: tap to log it on that exact day, tap a ticked daily
+    habit to take it back. Past-day rows read "that week/that month/that
+    day" and never say "go today". Taking back a past daily habit re-runs
+    `reconcilePenalties()` (logHabit's un-log path used to skip it, so the
+    quiet-days rule only caught up at the next launch). Entries list with
+    Remove, tasks for the day, and the day's weight follow.
   - **Tasks** is where daily goals are added (with a date field for planning
     ahead) and lists Today, "Unfinished tasks" carried over from earlier days,
     and Planned (future, grouped by date). Overdue goals also stay visible on
@@ -215,8 +242,9 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 - **Theme.** Every colour the app paints is a CSS custom property on `:root`;
   `:root[data-theme="dark"]` restates the values and nothing else. Never write a
   raw hex in a rule or an inline style — add a token. (The only deliberate
-  exceptions are `#fff` inside `.hero` and on tick marks, which sit on a
-  coloured fill in both themes, and the character SVG.) `state.theme` is
+  exceptions are the character SVG, the user-picked section colours in
+  `PALETTE`, and the status-bar `theme-color` values in `applyTheme()` /
+  the meta tag, which must match `--bg`: #F4F6FA light, #111521 dark.) `state.theme` is
   `auto` (follows the phone), `light` or `dark`. The inline script in `<head>`
   settles `data-theme` before the first paint so a dark phone never flashes
   white; it duplicates the logic in `effectiveTheme()` and the two must agree.
@@ -225,7 +253,7 @@ Screen from a static host (GitHub Pages). No accounts, no server, no build step.
 
 ## Testing
 
-`python test_app.py` — 414 Playwright checks in headless Chromium at iPhone
+`python test_app.py` — 433 Playwright checks in headless Chromium at iPhone
 size, Europe/Rome timezone, with a fake clock (midnight rollover, the October
 DST weekend, month wrap, v1 migration, corrupted storage, XSS in names).
 Run it after every change. Add a check for every bug you fix.

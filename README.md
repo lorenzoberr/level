@@ -24,9 +24,9 @@ Either way you get HTTPS, which the offline cache requires.
 ## First open
 
 The app arrives empty - no example habits, no pre-filled anything. The first
-time it opens it asks your name, your first section and its colour, your XP
-target and deadline, and (optionally) a weight goal, then drops you straight
-into building your first habit. Everything it asks for can be changed later
+time it opens it asks your name, your first section and its colour, your
+target level and deadline, and (optionally) a weight goal, then drops you
+straight into building your first habit. Everything it asks for can be changed later
 under Settings. You only ever see this once; restoring a backup skips it.
 
 ## Install on the iPhone
@@ -86,13 +86,17 @@ do work:
 ## How it works
 
 Four tabs along the bottom - Home, Calendar, Finances, Settings - and, on
-Home just under the hero, a row of four labelled icons opening the other
-screens: Tasks, Sections, Progress and Weight. Each opens full-screen with a
-"Home" button to come back. Every screen keeps one job:
+Home just above the level card, a row of four labelled icons opening the
+other screens: Tasks, Sections, Progress and Weight. Each opens full-screen
+with a "Home" link to come back. Adding or editing a habit, objective,
+section or budget category opens a card over the page; only Save or Cancel
+closes it, so a stray tap never loses what you typed. Every screen keeps
+one job:
 
-- **Home** — the daily loop. Tick habits, tick today's goals, log your weight,
-  see what's still owed. Goals left unfinished from earlier days show here
-  under "Unfinished tasks" with a button to move them to today.
+- **Home** — the daily loop. Tick habits and today's tasks, see what's still
+  owed, and your open objectives as a read-only "bigger picture". Tasks left
+  unfinished from earlier days show here under "Unfinished tasks" with a
+  button to move them to today.
 - **Tasks** — where daily goals are written. Add one for today or pick a date
   to plan ahead; below the form sit Today, Unfinished tasks, and everything
   Planned, grouped by day.
@@ -158,8 +162,12 @@ screens: Tasks, Sections, Progress and Weight. Each opens full-screen with a
   you there), or plan ahead with the date field or by tapping a future day in
   the calendar. Unfinished ones show up the next day under "Unfinished tasks"
   with a "Move to today" button, on both Home and the Tasks tab.
-- Calendar: tap any past day to see its entries, remove one, or log a habit
-  you forgot to log that day.
+- Calendar: tap any past day to see its entries and fix it. Every habit is
+  listed there as a row: forgot to log one? Tap it and it lands on that day
+  (tap a ticked one to take it back; a repeatable one can be tapped several
+  times). Remove individual entries, add or tick that day's tasks, or fix
+  that day's weight from the same panel. Backfilling also lifts a quiet-days
+  penalty the moment the day has something logged again.
 - Level curve: level 2 at 100 XP, 10 at about 1,570, 50 at about 26,750,
   the level-80 goal at about 65,130, and level 100 - the hard cap - at
   exactly 100,000. Each level costs a little more than the last, and the
